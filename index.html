@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consensus Chronicle | GenLayer</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0a0a12,#12121f);color:#f0f0f5;min-height:100vh}
+    .btn{padding:.7rem 1.4rem;border:none;border-radius:12px;font-weight:600;cursor:pointer;transition:all .2s}
+    .btn-primary{background:linear-gradient(135deg,#a78bfa,#f472b6);color:#fff}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(167,139,250,0.4)}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:1.5rem}
+    .input{width:100%;padding:.8rem 1rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-size:1rem;outline:none}
+    .input:focus{border-color:rgba(167,139,250,0.5)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading{animation:spin 1s linear infinite}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+/**
+ * CONSENSUS CHRONICLE - GenLayer 链上多人游戏
+ * 
+ * ⚠️ 使用前必须：
+ * 1. 在 GenLayer Studio 部署 ConsensusChronicle.py 合约
+ * 2. 复制合约地址填入下方 CONTRACT_ADDRESS
+ */
+
+const { useState, useEffect, useRef, useCallback } = React;
+
+// =============================================================================
+// ⚠️ 配置区 - 部署合约后修改这里
+// =============================================================================
+const CONFIG = {
+  // GenLayer Simulator RPC 地址
+  RPC_URL: 'https://studio.genlayer.com/api/v1/simulator/json-rpc',
+  
+  // ⚠️ 部署合约后，把合约地址填在这里！
+  CONTRACT_ADDRESS: '0x4547e3E94C17AD9C0D826D63cDAB73F4b20040cF', // 例如: '0x1234567890abcdef...'
+  
+  // 轮询间隔（毫秒）- 用于同步多玩家状态
+  POLL_INTERVAL: 3000,
+  
+  // 游戏配置
+  TOTAL_ROUNDS: 5,
+  ENTRY_FEE: 10
+};
+
+// =============================================================================
+// 故事数据
+// =============================================================================
+const STORIES = {
+  fantasy: {
+    name: "Dragon's Awakening", icon: "🐉",
+    rounds: [
+      { ctx: "黑龙苏醒，王国危在旦夕。", A: { text: "出兵攻打龙穴", tag: "激进" }, B: { text: "寻求精灵联盟", tag: "外交" }},
+      { ctx: "局势发展...", ctxA: "军队发现龙蛋", ctxB: "精灵要求圣剑作为信物",
+        A: { text: "摧毁龙蛋", tag: "斩草除根" }, B: { text: "保护龙蛋谈判", tag: "留有余地" }},
+      { ctx: "战斗白热化", ctxAA: "黑龙暴怒", ctxAB: "内部分裂", ctxBA: "独自作战艰难", ctxBB: "精灵援军到来",
+        A: { text: "使用禁忌魔法", tag: "牺牲" }, B: { text: "战略撤退", tag: "保存实力" }},
+      { ctx: "转折点", ctxA: "黑龙重伤", ctxB: "新的盟友出现",
+        A: { text: "趁胜追击", tag: "决战" }, B: { text: "尝试和平沟通", tag: "和谈" }},
+      { ctx: "最终章", ctxA: "决战时刻", ctxB: "黑龙揭示真相",
+        A: { text: "不惜代价消灭黑龙", tag: "玉石俱焚", end: "黑龙被消灭，王国也几乎化为废墟。幸存者开始漫长的重建。" },
+        B: { text: "与黑龙结盟", tag: "共存", end: "人类与黑龙达成前所未有的盟约，一个新时代开启。" }}
+    ]
+  },
+  scifi: {
+    name: "Exodus Protocol", icon: "🚀",
+    rounds: [
+      { ctx: "小行星将撞击地球，只能救一半人。", A: { text: "抽签决定", tag: "公平" }, B: { text: "追查信号来源", tag: "希望" }},
+      { ctx: "危机加深", ctxA: "落选者暴动", ctxB: "外星文明邀请人类",
+        A: { text: "武力镇压", tag: "秩序" }, B: { text: "谈判修改方案", tag: "人道" }},
+      { ctx: "关键抉择", ctxAA: "超载可多救30%但风险大", ctxAB: "先遣队失联", ctxBA: "极端分子破坏计划", ctxBB: "冷冻技术不成熟",
+        A: { text: "接受风险方案", tag: "赌博" }, B: { text: "坚持原计划", tag: "稳妥" }},
+      { ctx: "新发现", ctxA: "可以改变小行星轨道", ctxB: "外星人可摧毁小行星但有条件",
+        A: { text: "尝试改变轨道", tag: "英雄" }, B: { text: "继续撤离", tag: "谨慎" }},
+      { ctx: "最后时刻", ctxA: "能量用了80%，还差一点", ctxB: "外星人要求销毁核武",
+        A: { text: "全部押上", tag: "背水一战", end: "奇迹发生！小行星偏离轨道，人类用勇气战胜命运。" },
+        B: { text: "接受部分损失", tag: "务实", end: "小行星擦过地球造成灾难，但人类存活，开始重建。" }}
+    ]
+  },
+  mystery: {
+    name: "Chen Manor Murder", icon: "🔍",
+    rounds: [
+      { ctx: "富豪陈老爷被毒杀在密室中。", A: { text: "搜查现场", tag: "物证" }, B: { text: "审问嫌疑人", tag: "心理" }},
+      { ctx: "线索浮现", ctxA: "发现关于遗产的烧毁信件", ctxB: "管家神色慌张，女儿提到威胁信",
+        A: { text: "追查遗产问题", tag: "金钱" }, B: { text: "调查神秘商人李先生", tag: "外人" }},
+      { ctx: "深入调查", ctxAA: "大儿子有赌债，女仆是他的不在场证人", ctxAB: "海外账户户主加密", ctxBA: "李先生是私生子", ctxBB: "李先生带来20年前旧案线索",
+        A: { text: "验证女仆证词", tag: "质疑" }, B: { text: "调查陈年旧案", tag: "追溯" }},
+      { ctx: "真相逼近", ctxA: "伪证被拆穿", ctxB: "20年前的火灾是人为纵火",
+        A: { text: "交叉审问兄妹", tag: "对质" }, B: { text: "追查毒药来源", tag: "科学" }},
+      { ctx: "最终真相", ctxA: "陈月不是亲生女儿", ctxB: "管家心脏病发：真相在老槐树下",
+        A: { text: "公开全部真相", tag: "正义", end: "真相大白：管家是20年前原配的情人，他们策划了火灾。陈老爷发现后威胁揭发，于是管家痛下杀手。" },
+        B: { text: "给相关人选择机会", tag: "仁慈", end: "部分真相被掩埋，活着的人都有了新的开始。" }}
+    ]
+  },
+  political: {
+    name: "The Succession", icon: "👑",
+    rounds: [
+      { ctx: "老皇帝驾崩，遗诏：皇位传给最能代表民心者。三位皇子各有千秋。", A: { text: "支持太子按传统继位", tag: "保守" }, B: { text: "三皇子各陈施政纲领", tag: "革新" }},
+      { ctx: "权力斗争", ctxA: "二皇子联络边疆将军谋反", ctxB: "有人揭发三皇子通敌",
+        A: { text: "调动御林军分化二皇子同盟", tag: "权谋" }, B: { text: "主动与二皇子谈判", tag: "冒险" }},
+      { ctx: "危机四伏", ctxAA: "被策反的将领要求封侯拜相", ctxAB: "揭发信出自太后亲信", ctxBA: "二皇子条件苛刻", ctxBB: "太后开始干政",
+        A: { text: "暂时答应条件", tag: "权宜" }, B: { text: "揭露幕后黑手联合皇子", tag: "团结" }},
+      { ctx: "外敌来袭", ctxA: "北方游牧民族大军压境", ctxB: "皇子们放下争端",
+        A: { text: "三皇子亲征，谁击退敌军谁为帝", tag: "以战定帝" }, B: { text: "先选新帝再应对外敌", tag: "先内后外" }},
+      { ctx: "尘埃落定", ctxA: "三皇子各有战功，难分高下", ctxB: "发现另一份遗诏：皇位传给能让三子和睦者——竟是你",
+        A: { text: "建立三王议政新制度", tag: "共治", end: "大齐进入三王时代。虽争吵不断，但在你的调和下运转起来。" },
+        B: { text: "按军功定帝位", tag: "功勋", end: "二皇子凭战功登基，却出人意料地成为明君。" }}
+    ]
+  }
+};
+
+// =============================================================================
+// GenLayer RPC 服务
+// =============================================================================
+const GenLayer = {
+  requestId: 0,
+  
+  async call(method, args = []) {
+    if (!CONFIG.CONTRACT_ADDRESS) {
+      throw new Error('请先配置合约地址 CONTRACT_ADDRESS');
+    }
+    
+    this.requestId++;
+    console.log(`[GenLayer] 调用 ${method}`, args);
+    
+    try {
+      const response = await fetch(CONFIG.RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'sim_call',
+          params: [{
+            contract_address: CONFIG.CONTRACT_ADDRESS,
+            method: method,
+            args: args
+          }],
+          id: this.requestId
+        })
+      });
+      
+      const data = await response.json();
+      console.log(`[GenLayer] ${method} 响应:`, data);
+      
+      if (data.error) {
+        throw new Error(data.error.message || JSON.stringify(data.error));
+      }
+      
+      return data.result;
+    } catch (e) {
+      console.error(`[GenLayer] ${method} 错误:`, e);
+      throw e;
+    }
+  },
+  
+  async registerPlayer(name, avatar) { return this.call('register_player', [name, avatar]); },
+  async getPlayer(address) { return this.call('get_player', [address]); },
+  async getBalance(address) { return this.call('get_balance', [address]); },
+  async createRoom(theme) { return this.call('create_room', [theme]); },
+  async joinRoom(roomId) { return this.call('join_room', [roomId]); },
+  async leaveRoom(roomId) { return this.call('leave_room', [roomId]); },
+  async listRooms() { return this.call('list_rooms', []); },
+  async getRoom(roomId) { return this.call('get_room', [roomId]); },
+  async startGame(roomId) { return this.call('start_game', [roomId]); },
+  async submitVote(roomId, round, choice) { return this.call('submit_vote', [roomId, round, choice]); },
+  async finalizeRound(roomId) { return this.call('finalize_round', [roomId]); },
+  async getGameState(roomId) { return this.call('get_game_state', [roomId]); },
+  async getLeaderboard(limit = 20) { return this.call('get_leaderboard', [limit]); }
+};
+
+// =============================================================================
+// 主应用
+// =============================================================================
+function App() {
+  const [view, setView] = useState('setup');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [player, setPlayer] = useState(null);
+  const [address, setAddress] = useState('');
+  const [rooms, setRooms] = useState([]);
+  const [currentRoom, setCurrentRoom] = useState(null);
+  const [gameState, setGameState] = useState(null);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const pollRef = useRef(null);
+  
+  useEffect(() => { if (CONFIG.CONTRACT_ADDRESS) setView('home'); }, []);
+  
+  const startPolling = useCallback((roomId) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        if (roomId) {
+          const state = await GenLayer.getGameState(roomId);
+          if (state) { setGameState(state); setCurrentRoom(state.room); }
+        }
+      } catch (e) { console.error('轮询错误:', e); }
+    }, CONFIG.POLL_INTERVAL);
+  }, []);
+  
+  const stopPolling = useCallback(() => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } }, []);
+  useEffect(() => () => stopPolling(), [stopPolling]);
+  
+  const register = async (name) => {
+    setLoading(true); setError('');
+    try {
+      const addr = '0x' + Array(40).fill(0).map(() => Math.floor(Math.random()*16).toString(16)).join('');
+      setAddress(addr);
+      const result = await GenLayer.registerPlayer(name, '🎮');
+      if (result.success) { setPlayer({ address: addr, name, balance: result.balance }); setView('lobby'); await loadRooms(); }
+      else { setError(result.error || '注册失败'); }
+    } catch (e) { setError(e.message); }
+    setLoading(false);
+  };
+  
+  const loadRooms = async () => { try { setRooms(await GenLayer.listRooms() || []); } catch (e) { console.error(e); } };
+  const loadLeaderboard = async () => { try { setLeaderboard(await GenLayer.getLeaderboard(20) || []); } catch (e) { console.error(e); } };
+  
+  const createRoom = async (theme) => {
+    setLoading(true); setError('');
+    try {
+      const result = await GenLayer.createRoom(theme);
+      if (result.success) { setCurrentRoom(result.room); setPlayer(p => ({ ...p, balance: result.balance })); setView('room'); startPolling(result.room_id); }
+      else { setError(result.error); }
+    } catch (e) { setError(e.message); }
+    setLoading(false);
+  };
+  
+  const joinRoom = async (roomId) => {
+    setLoading(true); setError('');
+    try {
+      const result = await GenLayer.joinRoom(roomId);
+      if (result.success) { setCurrentRoom(result.room); setPlayer(p => ({ ...p, balance: result.balance })); setView('room'); startPolling(roomId); }
+      else { setError(result.error); }
+    } catch (e) { setError(e.message); }
+    setLoading(false);
+  };
+  
+  const startGame = async () => {
+    setLoading(true);
+    try {
+      const result = await GenLayer.startGame(currentRoom.id);
+      if (result.success) { setCurrentRoom(result.room); setView('game'); }
+      else { setError(result.error); }
+    } catch (e) { setError(e.message); }
+    setLoading(false);
+  };
+  
+  const submitVote = async (choice) => {
+    setLoading(true);
+    try {
+      const result = await GenLayer.submitVote(currentRoom.id, currentRoom.round, choice);
+      if (result.success && result.all_voted) { await GenLayer.finalizeRound(currentRoom.id); }
+    } catch (e) { setError(e.message); }
+    setLoading(false);
+  };
+  
+  const getContext = () => {
+    if (!currentRoom || !gameState) return '';
+    const rd = STORIES[currentRoom.theme]?.rounds[currentRoom.round - 1];
+    if (!rd) return '';
+    let ctx = rd.ctx;
+    const path = gameState.path || [];
+    if (currentRoom.round > 1 && path.length > 0) {
+      ctx = rd[`ctx${path.slice(-2).join('')}`] || rd[`ctx${path[path.length-1]}`] || rd.ctx;
+    }
+    return ctx;
+  };
+  
+  const getOptions = () => {
+    const rd = STORIES[currentRoom?.theme]?.rounds[currentRoom?.round - 1];
+    return { A: rd?.A, B: rd?.B };
+  };
+
+  // 配置页面
+  if (view === 'setup') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div className="card" style={{ maxWidth: '600px', textAlign: 'center' }}>
+          <h1 style={{ fontSize: '2rem', marginBottom: '1rem', color: '#ef4444' }}>⚠️ 配置 GenLayer 合约</h1>
+          <p style={{ color: '#888', marginBottom: '2rem' }}>使用本游戏之前，您需要先在 GenLayer Studio 部署智能合约。</p>
+          <div style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '12px', padding: '1.5rem', textAlign: 'left' }}>
+            <h3 style={{ color: '#a78bfa', marginBottom: '1rem' }}>📋 部署步骤：</h3>
+            <ol style={{ color: '#ccc', paddingLeft: '1.5rem', lineHeight: 2 }}>
+              <li>打开 <a href="https://studio.genlayer.com" target="_blank" style={{ color: '#a78bfa' }}>studio.genlayer.com</a></li>
+              <li>创建新合约，粘贴 <b>ConsensusChronicle.py</b> 代码</li>
+              <li>点击 <b>Deploy</b> 部署合约</li>
+              <li>复制生成的 <b>合约地址</b></li>
+              <li>打开 <b>index.html</b>，修改 <code style={{ background: '#333', padding: '2px 6px', borderRadius: '4px' }}>CONFIG.CONTRACT_ADDRESS</code></li>
+              <li>保存文件，刷新页面</li>
+            </ol>
+          </div>
+          <p style={{ marginTop: '1.5rem', color: '#fbbf24', fontSize: '0.9rem' }}>💡 所有玩家必须使用相同的合约地址才能一起游戏！</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // 首页
+  if (view === 'home') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div style={{ maxWidth: '400px', width: '100%', textAlign: 'center' }}>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📜</div>
+          <h1 style={{ fontSize: '2rem', background: 'linear-gradient(135deg,#a78bfa,#f472b6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '0.5rem' }}>共识编年史</h1>
+          <p style={{ color: '#888', marginBottom: '2rem' }}>GenLayer 链上多人协作游戏</p>
+          <div className="card">
+            <h3 style={{ marginBottom: '1rem' }}>输入你的名字</h3>
+            <input className="input" placeholder="你的名字..." style={{ marginBottom: '1rem', textAlign: 'center' }} onKeyDown={e => e.key === 'Enter' && e.target.value.trim() && register(e.target.value.trim())} />
+            {error && <p style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+            <button className="btn btn-primary" style={{ width: '100%' }} disabled={loading} onClick={e => { const i = e.target.parentElement.querySelector('input'); if (i.value.trim()) register(i.value.trim()); }}>
+              {loading ? '连接中...' : '进入游戏 →'}
+            </button>
+          </div>
+          <p style={{ marginTop: '1.5rem', fontSize: '0.75rem', color: '#666' }}>合约: {CONFIG.CONTRACT_ADDRESS.slice(0,10)}...{CONFIG.CONTRACT_ADDRESS.slice(-6)}</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // 大厅
+  if (view === 'lobby') {
+    return (
+      <div style={{ minHeight: '100vh', padding: '2rem' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <h1 style={{ fontSize: '1.5rem' }}>📜 共识编年史</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <span>{player?.name}</span>
+              <span style={{ color: '#fbbf24' }}>💰 {player?.balance} GLT</span>
+            </div>
+          </div>
+          {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem', color: '#ef4444' }}>{error}</div>}
+          <h2 style={{ marginBottom: '1rem', color: '#a78bfa' }}>🎮 选择主题创建房间</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '3rem' }}>
+            {Object.entries(STORIES).map(([key, s]) => (
+              <button key={key} className="card" style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => createRoom(key)} disabled={loading}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{s.icon}</div>
+                <div style={{ fontWeight: 600 }}>{s.name}</div>
+                <div style={{ fontSize: '0.8rem', color: '#fbbf24', marginTop: '0.5rem' }}>🎫 {CONFIG.ENTRY_FEE} GLT</div>
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ color: '#a78bfa' }}>🚪 加入房间</h2>
+            <button className="btn" style={{ background: 'rgba(255,255,255,0.1)' }} onClick={loadRooms}>🔄 刷新</button>
+          </div>
+          {rooms.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>暂无房间，创建一个吧！</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {rooms.map(room => (
+                <div key={room.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem' }}>
+                  <div><span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{STORIES[room.theme]?.icon}</span><span style={{ fontWeight: 600 }}>{room.host}</span><span style={{ color: '#888', marginLeft: '1rem' }}>👥 {room.player_count}/8</span></div>
+                  <button className="btn btn-primary" onClick={() => joinRoom(room.id)} disabled={loading}>加入</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <h2 style={{ color: '#fbbf24', marginTop: '3rem', marginBottom: '1rem' }}>🏆 排行榜</h2>
+          <button className="btn" style={{ background: 'rgba(255,255,255,0.1)', marginBottom: '1rem' }} onClick={loadLeaderboard}>加载排行榜</button>
+          {leaderboard.length > 0 && (
+            <div className="card">
+              {leaderboard.slice(0,10).map((e, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.5rem 0', borderBottom: i < 9 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                  <span style={{ fontWeight: 700, color: i < 3 ? '#fbbf24' : '#666', width: '2rem' }}>#{i+1}</span>
+                  <span style={{ flex: 1 }}>{e.name}</span>
+                  <span style={{ color: '#a78bfa', fontWeight: 600 }}>{e.score} pts</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+  
+  // 等待房间
+  if (view === 'room' && currentRoom) {
+    const story = STORIES[currentRoom.theme];
+    const isHost = currentRoom.host === address;
+    return (
+      <div style={{ minHeight: '100vh', padding: '2rem' }}>
+        <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <button className="btn" style={{ background: 'rgba(255,255,255,0.1)' }} onClick={() => { stopPolling(); setView('lobby'); }}>← 返回</button>
+            <div><span style={{ fontSize: '1.5rem' }}>{story?.icon}</span> <span style={{ fontWeight: 600 }}>{story?.name}</span></div>
+            <span style={{ color: '#666', fontSize: '0.8rem' }}>{currentRoom.id}</span>
+          </div>
+          <h3 style={{ color: '#888', marginBottom: '1rem' }}>玩家 ({currentRoom.players?.length || 0}/8)</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+            {currentRoom.players?.map(addr => (
+              <div key={addr} className="card" style={{ textAlign: 'center', padding: '1rem' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.3rem' }}>🎮</div>
+                <div style={{ fontSize: '0.9rem' }}>{currentRoom.player_names?.[addr] || addr.slice(-6)}</div>
+                {addr === currentRoom.host && <span style={{ fontSize: '0.7rem', color: '#fbbf24' }}>房主</span>}
+              </div>
+            ))}
+          </div>
+          {isHost ? (
+            <button className="btn btn-primary" style={{ width: '100%', padding: '1rem', fontSize: '1.1rem' }} onClick={startGame} disabled={loading || (currentRoom.players?.length || 0) < 2}>
+              {(currentRoom.players?.length || 0) < 2 ? '等待更多玩家...' : '🎮 开始游戏'}
+            </button>
+          ) : (
+            <div style={{ textAlign: 'center', color: '#888', padding: '1rem' }}>等待房主开始游戏...</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+  
+  // 游戏中
+  if (view === 'game' && currentRoom && gameState) {
+    const story = STORIES[currentRoom.theme];
+    const context = getContext();
+    const options = getOptions();
+    const myVote = gameState.current_votes?.[address];
+    const voteCount = Object.values(gameState.current_votes || {}).length;
+    const totalPlayers = currentRoom.players?.length || 0;
+    
+    if (currentRoom.status === 'finished') {
+      return (
+        <div style={{ minHeight: '100vh', padding: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="card" style={{ maxWidth: '500px', textAlign: 'center' }}>
+            <h1 style={{ color: '#fbbf24', marginBottom: '1.5rem' }}>🏆 游戏结束！</h1>
+            <div style={{ marginBottom: '2rem' }}>
+              {Object.entries(gameState.scores || {}).sort((a,b) => b[1] - a[1]).map(([addr, score], i) => (
+                <div key={addr} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', background: i === 0 ? 'rgba(251,191,36,0.1)' : 'transparent', borderRadius: '8px' }}>
+                  <span>#{i+1} {currentRoom.player_names?.[addr]}</span>
+                  <span style={{ color: '#a78bfa' }}>{score} pts</span>
+                </div>
+              ))}
+            </div>
+            <button className="btn btn-primary" onClick={() => { stopPolling(); setView('lobby'); loadRooms(); }}>返回大厅</button>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div style={{ minHeight: '100vh', padding: '2rem' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '12px' }}>
+            <div><span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{story?.icon}</span><span style={{ fontWeight: 600 }}>{story?.name}</span></div>
+            <div>第 <span style={{ color: '#a78bfa', fontWeight: 700 }}>{currentRoom.round}</span> / {CONFIG.TOTAL_ROUNDS} 轮</div>
+            <div>投票: <span style={{ color: '#4ade80' }}>{voteCount}</span> / {totalPlayers}</div>
+          </div>
+          <div className="card" style={{ marginBottom: '1.5rem' }}>
+            <h3 style={{ color: '#a78bfa', marginBottom: '1rem' }}>📜 当前剧情</h3>
+            {gameState.path?.map((choice, i) => (<p key={i} style={{ color: '#4ade80', marginBottom: '0.5rem' }}>第{i+1}轮选择: {choice}</p>))}
+            <p style={{ color: '#fbbf24', marginTop: '1rem', fontSize: '1.1rem' }}>{context}</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            {['A', 'B'].map(key => {
+              const opt = options[key];
+              if (!opt) return null;
+              const color = key === 'A' ? '#ef4444' : '#3b82f6';
+              return (
+                <button key={key} className="card" style={{ textAlign: 'left', cursor: myVote ? 'default' : 'pointer', border: `2px solid ${myVote === key ? color : 'rgba(255,255,255,0.08)'}`, background: myVote === key ? `${color}20` : 'rgba(255,255,255,0.03)' }} onClick={() => !myVote && submitVote(key)} disabled={loading || !!myVote}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                    <span style={{ fontWeight: 700, fontSize: '1.2rem', color }}>{key}</span>
+                    <span style={{ fontSize: '0.8rem', padding: '2px 8px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px' }}>{opt.tag}</span>
+                  </div>
+                  <p style={{ lineHeight: 1.6 }}>{opt.text}</p>
+                  {myVote === key && <p style={{ color, marginTop: '0.8rem', fontWeight: 600 }}>✓ 已投票</p>}
+                </button>
+              );
+            })}
+          </div>
+          {myVote && <p style={{ textAlign: 'center', marginTop: '1.5rem', color: '#888' }}>等待其他玩家... ({voteCount}/{totalPlayers})</p>}
+        </div>
+      </div>
+    );
+  }
+  
+  return (<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="loading" style={{ fontSize: '3rem' }}>⏳</div></div>);
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
