@@ -1,22 +1,10 @@
-import { createClient, createAccount } from 'genlayer-js';
-import { testnetAsimov } from 'genlayer-js/chains';
+import { createClient } from 'genlayer-js';
 
-// ⚠️ 部署后把这里换成你的合约地址
-const CONTRACT_ADDRESS = '你的合约地址';
+const CONTRACT_ADDRESS = '0x4F5F132ba540f1C685B0188D59990302903aE186';
 
-// 创建 GenLayer 客户端
 const client = createClient({
-  chain: testnetAsimov,
+  chain: 'studionet',
 });
-
-// 读取方法（不需要私钥）
-const READ_METHODS = [
-  'get_player',
-  'get_balance', 
-  'list_rooms',
-  'get_game_state',
-  'get_leaderboard'
-];
 
 export default async function handler(req, res) {
   // CORS
@@ -27,68 +15,40 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-  
+
+  const { method, params, privateKey } = req.body;
+
   try {
-    const { method, args = [], privateKey } = req.body;
+    // 读取方法 (不需要签名)
+    const readMethods = ['get_player', 'get_room', 'list_rooms'];
     
-    if (!method) {
-      return res.status(400).json({ error: 'Method required' });
-    }
-    
-    // 读取操作
-    if (READ_METHODS.includes(method)) {
+    if (readMethods.includes(method)) {
       const result = await client.readContract({
         address: CONTRACT_ADDRESS,
         functionName: method,
-        args: args,
+        args: params || [],
       });
-      
-      return res.json({ success: true, result });
+      return res.status(200).json({ success: true, data: result });
     }
-    
-    // 写入操作（需要私钥）
+
+    // 写入方法 (需要签名)
     if (!privateKey) {
-      return res.status(400).json({ error: 'Private key required for write operations' });
+      return res.status(400).json({ success: false, error: 'Private key required for write operations' });
     }
+
+    const account = client.createAccount(privateKey);
     
-    // 从私钥创建账户
-    const account = createAccount(privateKey);
-    
-    // 创建带账户的客户端
-    const writeClient = createClient({
-      chain: testnetAsimov,
-      account: account,
-    });
-    
-    // 发送交易
-    const hash = await writeClient.writeContract({
+    const result = await client.writeContract({
       address: CONTRACT_ADDRESS,
       functionName: method,
-      args: args,
+      args: params || [],
+      account,
     });
-    
-    // 等待确认
-    const receipt = await writeClient.waitForTransactionReceipt({
-      hash: hash,
-      status: 'FINALIZED',
-      retries: 30,
-    });
-    
-    return res.json({
-      success: true,
-      hash: hash,
-      result: receipt.result,
-    });
-    
+
+    return res.status(200).json({ success: true, data: result });
+
   } catch (error) {
-    console.error('GenLayer API Error:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message || 'Unknown error',
-    });
+    console.error('Contract error:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 }
