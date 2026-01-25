@@ -743,6 +743,8 @@ async function connectWallet() {
   }
 
   try {
+    toast('正在连接钱包...', 'info');
+    
     // 请求账户
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
     state.address = accounts[0];
@@ -754,17 +756,21 @@ async function connectWallet() {
         params: [{ chainId: CONFIG.CHAIN_ID }],
       });
     } catch (switchError) {
-      if (switchError.code === 4902) {
-        await window.ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [{
-            chainId: CONFIG.CHAIN_ID,
-            chainName: CONFIG.CHAIN_NAME,
-            nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 },
-            rpcUrls: [CONFIG.RPC_URL],
-            blockExplorerUrls: [CONFIG.EXPLORER],
-          }],
-        });
+      if (switchError.code === 4902 || switchError.code === -32603) {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: CONFIG.CHAIN_ID,
+              chainName: CONFIG.CHAIN_NAME,
+              nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 },
+              rpcUrls: [CONFIG.RPC_URL],
+              blockExplorerUrls: [CONFIG.EXPLORER],
+            }],
+          });
+        } catch (addError) {
+          console.warn('添加网络失败，继续使用当前网络:', addError);
+        }
       }
     }
 
@@ -773,9 +779,14 @@ async function connectWallet() {
     state.signer = await state.provider.getSigner();
     state.contract = new ethers.Contract(CONFIG.CONTRACT, CONTRACT_ABI, state.signer);
 
-    // 获取余额
-    const balance = await state.provider.getBalance(state.address);
-    state.balance = ethers.formatEther(balance);
+    // 尝试获取余额（允许失败）
+    try {
+      const balance = await state.provider.getBalance(state.address);
+      state.balance = ethers.formatEther(balance);
+    } catch (balanceErr) {
+      console.warn('获取余额失败，使用默认值:', balanceErr);
+      state.balance = '0';
+    }
 
     // 更新UI
     document.getElementById('networkBadge').classList.remove('hidden');
@@ -793,14 +804,19 @@ async function connectWallet() {
 
   } catch (err) {
     console.error(err);
-    toast('连接失败: ' + (err.message || err), 'error');
+    // 如果是RPC错误，提供更友好的提示
+    if (err.message?.includes('RPC') || err.code === -32002) {
+      toast('网络繁忙，请稍后重试', 'error');
+    } else {
+      toast('连接失败: ' + (err.reason || err.message || err), 'error');
+    }
   }
 }
 
 async function checkPlayerStatus() {
   try {
     const result = await state.contract.get_player(state.address);
-    if (result && result !== '{}' && result !== 'null') {
+    if (result && result !== '{}' && result !== 'null' && result !== '') {
       const data = JSON.parse(result);
       if (data.name) {
         player.name = data.name;
@@ -813,7 +829,7 @@ async function checkPlayerStatus() {
       }
     }
   } catch (e) {
-    console.log('Player not registered yet');
+    console.warn('检查玩家状态失败，显示注册表单:', e);
   }
   
   // 显示注册表单
@@ -860,7 +876,18 @@ async function registerPlayer() {
     toast('注册成功！', 'success');
   } catch (err) {
     console.error(err);
-    toast('注册失败: ' + (err.reason || err.message || err), 'error');
+    // 如果是RPC错误，允许本地模式
+    if (err.message?.includes('RPC') || err.code === -32002 || err.code === 'UNKNOWN_ERROR') {
+      toast('网络繁忙，进入本地模式', 'info');
+      player.name = name;
+      player.registered = true;
+      hide('registerForm');
+      showPlayerCard();
+      showThemeSection();
+      loadRooms();
+    } else {
+      toast('注册失败: ' + (err.reason || err.message || err), 'error');
+    }
   }
 }
 
@@ -908,8 +935,8 @@ async function loadRooms() {
       </div>
     `).join('');
   } catch (err) {
-    console.error(err);
-    list.innerHTML = '<div class="no-rooms">加载失败，请刷新重试</div>';
+    console.warn('加载房间失败:', err);
+    list.innerHTML = '<div class="no-rooms">⚠️ 网络繁忙，<a href="javascript:loadRooms()" style="color:#a78bfa;">点击重试</a><br><small style="color:#6b6b7e;">或直接创建新房间</small></div>';
   }
 }
 
@@ -941,7 +968,18 @@ async function createRoom(theme) {
     setTimeout(addAIPlayers, 1000);
   } catch (err) {
     console.error(err);
-    toast('创建失败: ' + (err.reason || err.message || err), 'error');
+    // 如果是RPC错误，允许本地模式
+    if (err.message?.includes('RPC') || err.code === -32002 || err.code === 'UNKNOWN_ERROR') {
+      toast('网络繁忙，进入本地模式', 'info');
+      room.id = Date.now();
+      room.theme = theme;
+      room.host = state.address;
+      room.players = [{ id: state.address, name: player.name, avatar: player.avatar, isHost: true }];
+      showRoomPage();
+      setTimeout(addAIPlayers, 1000);
+    } else {
+      toast('创建失败: ' + (err.reason || err.message || err), 'error');
+    }
   }
 }
 
@@ -954,12 +992,17 @@ async function joinRoom(roomId) {
     await tx.wait();
     
     // 获取房间信息
-    const result = await state.contract.get_room(roomId);
-    const roomData = JSON.parse(result);
+    let roomData = { theme: 'fantasy', host: '', players: [] };
+    try {
+      const result = await state.contract.get_room(roomId);
+      roomData = JSON.parse(result);
+    } catch (e) {
+      console.warn('获取房间信息失败:', e);
+    }
     
     room.id = roomId;
-    room.theme = roomData.theme;
-    room.host = roomData.host;
+    room.theme = roomData.theme || 'fantasy';
+    room.host = roomData.host || '';
     room.players = roomData.players || [];
     
     // 确保自己在玩家列表中
@@ -1063,7 +1106,13 @@ async function startGame() {
   
   try {
     toast('正在开始游戏...', 'info');
-    await state.contract.start_game(room.id);
+    
+    // 尝试调用合约，但失败也继续
+    try {
+      await state.contract.start_game(room.id);
+    } catch (contractErr) {
+      console.warn('合约调用失败，使用本地模式:', contractErr);
+    }
     
     // 初始化游戏状态
     game.round = 0;
@@ -1207,11 +1256,11 @@ function selectOption(choice) {
   updateChatPlayers();
   addSystemMessage(`你投票给了选项 ${choice}`);
   
-  // 发送到合约
+  // 发送到合约（允许失败）
   try {
-    state.contract.vote(room.id, choice);
+    state.contract.vote(room.id, choice).catch(e => console.warn('投票上链失败:', e));
   } catch (e) {
-    console.log('Vote tx:', e);
+    console.warn('投票调用失败:', e);
   }
 }
 
