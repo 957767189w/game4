@@ -1,5 +1,12 @@
 {
   "name": "consensus-chronicle",
   "version": "1.0.0",
-  "private": true
+  "description": "共识编年史 - GenLayer链上多人协作叙事游戏",
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve ."
+  },
+  "dependencies": {
+    "genlayer-js": "^0.18.9"
+  }
 }
