@@ -928,7 +928,7 @@ async function registerPlayer() {
     return;
   }
 
-  // 检查合约是否初始化，如果没有尝试自动重连
+  // 检查合约是否初始化
   console.log('检查状态:', { 
     hasContract: !!state.contract, 
     hasSigner: !!state.signer,
@@ -936,30 +936,11 @@ async function registerPlayer() {
   });
   
   if (!state.contract || !state.signer) {
-    console.warn('合约未初始化，尝试自动重连...');
-    toast('正在重新连接合约...', 'info');
-    
-    try {
-      if (!window.ethereum) {
-        toast('MetaMask未安装，请安装后刷新页面', 'error');
-        return;
-      }
-      
-      state.provider = new ethers.BrowserProvider(window.ethereum);
-      state.signer = await state.provider.getSigner();
-      state.address = await state.signer.getAddress();
-      state.contract = new ethers.Contract(CONFIG.CONTRACT, CONTRACT_ABI, state.signer);
-      
-      console.log('自动重连成功:', state.contract.target);
-      toast('重新连接成功！', 'success');
-    } catch (reconnectErr) {
-      console.error('自动重连失败:', reconnectErr);
-      toast('合约连接失败，请刷新页面重新连接钱包', 'error');
-      return;
-    }
+    toast('钱包未连接，请刷新页面', 'error');
+    return;
   }
 
-  // 禁用按钮防止重复点击
+  // 禁用按钮
   const btn = document.querySelector('#registerForm button');
   if (btn) {
     btn.disabled = true;
@@ -967,76 +948,20 @@ async function registerPlayer() {
   }
 
   try {
-    // 先测试RPC连接
-    toast('正在检测网络...', 'info');
-    let networkOk = false;
-    for (let i = 0; i < 3; i++) {
-      try {
-        const blockNum = await state.provider.getBlockNumber();
-        console.log('网络连接正常，当前区块:', blockNum);
-        networkOk = true;
-        break;
-      } catch (netErr) {
-        console.warn(`网络测试失败 (${i+1}/3):`, netErr.message);
-        if (i < 2) await new Promise(r => setTimeout(r, 2000));
-      }
-    }
+    toast('请在MetaMask中确认交易...', 'info');
+    console.log('调用合约:', state.contract.target);
     
-    if (!networkOk) {
-      toast('网络连接不稳定，请稍后重试', 'error');
-      return;
-    }
-    
-    toast('正在注册，请在MetaMask中确认交易...', 'info');
-    console.log('准备调用合约:', { 
-      name, 
-      avatar: player.avatar, 
-      contractAddress: state.contract.target 
+    // 直接调用合约
+    const tx = await state.contract.register_player(name, player.avatar, { 
+      value: 0,
+      gasLimit: 300000
     });
     
-    // 调用合约 - 使用固定gas避免估算失败
-    let tx;
-    let lastError;
-    for (let attempt = 1; attempt <= 5; attempt++) {
-      try {
-        console.log(`尝试发送交易 (${attempt}/5)...`);
-        
-        // 使用固定gas，避免RPC调用估算gas时失败
-        const txOptions = { 
-          value: 0,
-          gasLimit: 300000  // 固定gas，避免估算调用
-        };
-        
-        tx = await state.contract.register_player(name, player.avatar, txOptions);
-        console.log('交易已发送:', tx.hash);
-        toast(`交易已发送: ${tx.hash.slice(0,10)}...`, 'success');
-        break;
-      } catch (e) {
-        lastError = e;
-        console.error(`第${attempt}次尝试失败:`, e.message || e);
-        
-        // 用户取消不重试
-        if (e.code === 4001 || e.code === 'ACTION_REJECTED') {
-          throw e;
-        }
-        
-        // 继续重试
-        if (attempt < 5) {
-          toast(`网络错误，3秒后重试 (${attempt}/5)...`, 'info');
-          await new Promise(r => setTimeout(r, 3000));
-        } else {
-          throw e;
-        }
-      }
-    }
-    
-    if (!tx) {
-      throw lastError || new Error('交易发送失败');
-    }
-    
+    console.log('交易已发送:', tx.hash);
     toast('交易已提交，等待确认...', 'info');
-    const receipt = await tx.wait();
-    console.log('交易已确认:', receipt);
+    
+    await tx.wait();
+    console.log('交易已确认');
     
     player.name = name;
     player.registered = true;
@@ -1046,29 +971,16 @@ async function registerPlayer() {
     showThemeSection();
     loadRooms();
     
-    toast('注册成功！交易已上链', 'success');
+    toast('注册成功！', 'success');
   } catch (err) {
-    console.error('=== 注册失败详情 ===');
-    console.error('错误对象:', err);
-    console.error('错误代码:', err.code);
-    console.error('错误消息:', err.message);
-    console.error('错误原因:', err.reason);
+    console.error('注册失败:', err);
     
     if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
       toast('用户取消了交易', 'error');
-    } else if (err.code === 'CALL_EXCEPTION') {
-      toast('合约调用失败: ' + (err.reason || err.revert || '请检查合约'), 'error');
-    } else if (err.code === 'INSUFFICIENT_FUNDS') {
-      toast('余额不足', 'error');
-    } else if (err.code === -32002) {
-      toast('请在MetaMask中处理待处理的请求', 'error');
-    } else if (err.message?.includes('RPC') || err.code === 'UNKNOWN_ERROR' || err.code === -32603) {
-      toast('RPC错误，GenLayer测试网不稳定，请等待30秒后重试', 'error');
     } else {
-      toast('注册失败: ' + (err.shortMessage || err.reason || err.message || '请重试'), 'error');
+      toast('注册失败: ' + (err.shortMessage || err.message || '请重试'), 'error');
     }
   } finally {
-    // 恢复按钮状态
     if (btn) {
       btn.disabled = false;
       btn.textContent = '确认注册';
@@ -1146,40 +1058,23 @@ async function loadRooms() {
 
 async function createRoom(theme) {
   if (!state.contract || !state.signer) {
-    toast('钱包未连接，请刷新页面重试', 'error');
+    toast('钱包未连接，请刷新页面', 'error');
     return;
   }
 
   try {
-    toast('正在创建房间，请在MetaMask中确认交易...', 'info');
-    console.log('创建房间:', { theme, contract: state.contract.target });
+    toast('请在MetaMask中确认交易...', 'info');
+    console.log('创建房间:', theme);
     
-    // 带重试的合约调用，使用固定gas
-    let tx;
-    for (let attempt = 1; attempt <= 5; attempt++) {
-      try {
-        tx = await state.contract.create_room(theme, { value: 0, gasLimit: 300000 });
-        console.log('交易已发送:', tx.hash);
-        break;
-      } catch (e) {
-        if (e.code === 4001 || e.code === 'ACTION_REJECTED') throw e;
-        if (attempt < 5) {
-          toast(`网络错误，3秒后重试 (${attempt}/5)...`, 'info');
-          await new Promise(r => setTimeout(r, 3000));
-        } else throw e;
-      }
-    }
+    const tx = await state.contract.create_room(theme, { value: 0, gasLimit: 300000 });
+    console.log('交易已发送:', tx.hash);
     
     toast('交易已提交，等待确认...', 'info');
     const receipt = await tx.wait();
-    console.log('交易已确认:', receipt);
     
-    // 尝试从事件获取房间ID
     let roomId = Date.now();
     if (receipt.logs && receipt.logs.length > 0) {
-      try {
-        roomId = parseInt(receipt.logs[0].topics[1], 16);
-      } catch (e) {}
+      try { roomId = parseInt(receipt.logs[0].topics[1], 16); } catch (e) {}
     }
     
     room.id = roomId;
@@ -1187,20 +1082,13 @@ async function createRoom(theme) {
     room.host = state.address;
     room.players = [{ id: state.address, name: player.name, avatar: player.avatar, isHost: true }];
     
-    toast('房间创建成功！交易已上链', 'success');
+    toast('房间创建成功！', 'success');
     showRoomPage();
-    
-    // 添加AI玩家
     setTimeout(addAIPlayers, 1000);
   } catch (err) {
-    console.error('创建房间失败详情:', err);
-    console.error('错误代码:', err.code);
+    console.error('创建房间失败:', err);
     if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
       toast('用户取消了交易', 'error');
-    } else if (err.code === 'CALL_EXCEPTION') {
-      toast('合约调用失败: ' + (err.reason || '请检查合约'), 'error');
-    } else if (err.message?.includes('RPC') || err.code === 'UNKNOWN_ERROR') {
-      toast('RPC网络错误，请等待30秒后重试', 'error');
     } else {
       toast('创建失败: ' + (err.shortMessage || err.message || '请重试'), 'error');
     }
@@ -1209,29 +1097,16 @@ async function createRoom(theme) {
 
 async function joinRoom(roomId) {
   if (!state.contract || !state.signer) {
-    toast('钱包未连接，请刷新页面重试', 'error');
+    toast('钱包未连接，请刷新页面', 'error');
     return;
   }
 
   try {
-    toast('正在加入房间，请在MetaMask中确认交易...', 'info');
-    console.log('加入房间:', { roomId, contract: state.contract.target });
+    toast('请在MetaMask中确认交易...', 'info');
+    console.log('加入房间:', roomId);
     
-    // 带重试的合约调用，使用固定gas
-    let tx;
-    for (let attempt = 1; attempt <= 5; attempt++) {
-      try {
-        tx = await state.contract.join_room(roomId, { value: 0, gasLimit: 300000 });
-        console.log('交易已发送:', tx.hash);
-        break;
-      } catch (e) {
-        if (e.code === 4001 || e.code === 'ACTION_REJECTED') throw e;
-        if (attempt < 5) {
-          toast(`网络错误，3秒后重试 (${attempt}/5)...`, 'info');
-          await new Promise(r => setTimeout(r, 3000));
-        } else throw e;
-      }
-    }
+    const tx = await state.contract.join_room(roomId, { value: 0, gasLimit: 300000 });
+    console.log('交易已发送:', tx.hash);
     
     toast('交易已提交，等待确认...', 'info');
     await tx.wait();
@@ -1250,22 +1125,16 @@ async function joinRoom(roomId) {
     room.host = roomData.host || '';
     room.players = roomData.players || [];
     
-    // 确保自己在玩家列表中
     if (!room.players.find(p => p.id === state.address)) {
       room.players.push({ id: state.address, name: player.name, avatar: player.avatar });
     }
     
-    toast('加入成功！交易已上链', 'success');
+    toast('加入成功！', 'success');
     showRoomPage();
   } catch (err) {
-    console.error('加入房间失败详情:', err);
-    console.error('错误代码:', err.code);
+    console.error('加入房间失败:', err);
     if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
       toast('用户取消了交易', 'error');
-    } else if (err.code === 'CALL_EXCEPTION') {
-      toast('合约调用失败: ' + (err.reason || '请检查合约'), 'error');
-    } else if (err.message?.includes('RPC') || err.code === 'UNKNOWN_ERROR') {
-      toast('RPC网络错误，请稍后重试', 'error');
     } else {
       toast('加入失败: ' + (err.shortMessage || err.message || '请重试'), 'error');
     }
