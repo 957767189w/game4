@@ -734,6 +734,32 @@ function formatTime(s) {
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 }
 
+// ========== 工具函数 ==========
+async function retryTransaction(txFn, maxRetries = 3) {
+  let lastError;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      if (i > 0) {
+        toast(`重试中 (${i}/${maxRetries})...`, 'info');
+        await new Promise(r => setTimeout(r, 2000)); // 等待2秒再重试
+      }
+      return await txFn();
+    } catch (err) {
+      lastError = err;
+      console.warn(`尝试 ${i + 1} 失败:`, err);
+      // 如果是用户取消，不重试
+      if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
+        throw err;
+      }
+      // 如果不是RPC错误，不重试
+      if (!err.message?.includes('RPC') && err.code !== -32002 && err.code !== 'UNKNOWN_ERROR') {
+        throw err;
+      }
+    }
+  }
+  throw lastError;
+}
+
 // ========== 钱包连接 ==========
 async function connectWallet() {
   if (typeof window.ethereum === 'undefined') {
@@ -818,7 +844,20 @@ async function connectWallet() {
 
 async function checkPlayerStatus() {
   try {
-    const result = await state.contract.get_player(state.address);
+    let result;
+    for (let i = 0; i < 3; i++) {
+      try {
+        result = await state.contract.get_player(state.address);
+        break;
+      } catch (e) {
+        if (i < 2) {
+          await new Promise(r => setTimeout(r, 1500));
+        } else {
+          throw e;
+        }
+      }
+    }
+    
     if (result && result !== '{}' && result !== 'null' && result !== '') {
       try {
         const data = JSON.parse(result);
@@ -867,9 +906,11 @@ async function registerPlayer() {
 
   try {
     toast('正在注册，请在MetaMask中确认交易...', 'info');
-    const tx = await state.contract.register_player(name, player.avatar, {
-      value: 0  // 扣费0 GEN
+    
+    const tx = await retryTransaction(async () => {
+      return await state.contract.register_player(name, player.avatar, { value: 0 });
     });
+    
     toast('交易已提交，等待确认...', 'info');
     await tx.wait();
     
@@ -886,6 +927,8 @@ async function registerPlayer() {
     console.error('注册失败:', err);
     if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
       toast('用户取消了交易', 'error');
+    } else if (err.message?.includes('RPC') || err.code === 'UNKNOWN_ERROR') {
+      toast('网络繁忙，请稍后重试', 'error');
     } else {
       toast('注册失败: ' + (err.reason || err.message || '请重试'), 'error');
     }
@@ -917,7 +960,20 @@ async function loadRooms() {
   list.innerHTML = '<div class="no-rooms"><span class="loading"></span> 正在从链上加载房间...</div>';
   
   try {
-    const result = await state.contract.list_rooms();
+    let result;
+    for (let i = 0; i < 3; i++) {
+      try {
+        result = await state.contract.list_rooms();
+        break;
+      } catch (e) {
+        if (i < 2) {
+          await new Promise(r => setTimeout(r, 1500));
+        } else {
+          throw e;
+        }
+      }
+    }
+    
     let rooms = [];
     try {
       rooms = JSON.parse(result || '[]');
@@ -943,16 +999,18 @@ async function loadRooms() {
     `).join('');
   } catch (err) {
     console.error('加载房间失败:', err);
-    list.innerHTML = '<div class="no-rooms">⚠️ 加载失败，<a href="javascript:loadRooms()" style="color:#a78bfa;">点击重试</a></div>';
+    list.innerHTML = '<div class="no-rooms">⚠️ 网络繁忙，<a href="javascript:loadRooms()" style="color:#a78bfa;">点击重试</a></div>';
   }
 }
 
 async function createRoom(theme) {
   try {
     toast('正在创建房间，请在MetaMask中确认交易...', 'info');
-    const tx = await state.contract.create_room(theme, {
-      value: 0  // 扣费0 GEN
+    
+    const tx = await retryTransaction(async () => {
+      return await state.contract.create_room(theme, { value: 0 });
     });
+    
     toast('交易已提交，等待确认...', 'info');
     const receipt = await tx.wait();
     
@@ -978,6 +1036,8 @@ async function createRoom(theme) {
     console.error('创建房间失败:', err);
     if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
       toast('用户取消了交易', 'error');
+    } else if (err.message?.includes('RPC') || err.code === 'UNKNOWN_ERROR') {
+      toast('网络繁忙，请稍后重试', 'error');
     } else {
       toast('创建失败: ' + (err.reason || err.message || '请重试'), 'error');
     }
@@ -987,9 +1047,11 @@ async function createRoom(theme) {
 async function joinRoom(roomId) {
   try {
     toast('正在加入房间，请在MetaMask中确认交易...', 'info');
-    const tx = await state.contract.join_room(roomId, {
-      value: 0  // 扣费0 GEN
+    
+    const tx = await retryTransaction(async () => {
+      return await state.contract.join_room(roomId, { value: 0 });
     });
+    
     toast('交易已提交，等待确认...', 'info');
     await tx.wait();
     
@@ -1018,6 +1080,8 @@ async function joinRoom(roomId) {
     console.error('加入房间失败:', err);
     if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
       toast('用户取消了交易', 'error');
+    } else if (err.message?.includes('RPC') || err.code === 'UNKNOWN_ERROR') {
+      toast('网络繁忙，请稍后重试', 'error');
     } else {
       toast('加入失败: ' + (err.reason || err.message || '请重试'), 'error');
     }
@@ -1114,7 +1178,9 @@ async function startGame() {
     toast('正在开始游戏...', 'info');
     
     // 调用合约开始游戏
-    const tx = await state.contract.start_game(room.id);
+    const tx = await retryTransaction(async () => {
+      return await state.contract.start_game(room.id);
+    });
     await tx.wait();
     
     // 初始化游戏状态
@@ -1151,6 +1217,8 @@ async function startGame() {
     console.error('开始游戏失败:', err);
     if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
       toast('用户取消了交易', 'error');
+    } else if (err.message?.includes('RPC') || err.code === 'UNKNOWN_ERROR') {
+      toast('网络繁忙，请稍后重试', 'error');
     } else {
       toast('开始失败: ' + (err.reason || err.message || '请重试'), 'error');
     }
@@ -1265,12 +1333,14 @@ async function selectOption(choice) {
   
   // 发送到合约（上链）
   try {
-    const tx = await state.contract.vote(room.id, choice);
+    const tx = await retryTransaction(async () => {
+      return await state.contract.vote(room.id, choice);
+    });
     await tx.wait();
     addSystemMessage(`投票已上链确认！`);
   } catch (e) {
     console.warn('投票上链失败:', e);
-    // 投票失败不影响本地游戏进行
+    addSystemMessage(`投票上链失败，但本地已记录`);
   }
 }
 
