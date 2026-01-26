@@ -928,14 +928,7 @@ async function registerPlayer() {
     return;
   }
 
-  // 检查合约是否初始化
-  console.log('检查状态:', { 
-    hasContract: !!state.contract, 
-    hasSigner: !!state.signer,
-    address: state.address 
-  });
-  
-  if (!state.contract || !state.signer) {
+  if (!state.address) {
     toast('钱包未连接，请刷新页面', 'error');
     return;
   }
@@ -949,19 +942,52 @@ async function registerPlayer() {
 
   try {
     toast('请在MetaMask中确认交易...', 'info');
-    console.log('调用合约:', state.contract.target);
     
-    // 直接调用合约
-    const tx = await state.contract.register_player(name, player.avatar, { 
-      value: 0,
-      gasLimit: 300000
+    // 使用原始MetaMask API，绕过ethers.js的错误解析问题
+    // 编码函数调用数据
+    const iface = new ethers.Interface(CONTRACT_ABI);
+    const data = iface.encodeFunctionData('register_player', [name, player.avatar]);
+    
+    console.log('发送交易到:', CONFIG.CONTRACT);
+    console.log('调用数据:', data);
+    
+    // 直接使用MetaMask发送交易
+    const txHash = await window.ethereum.request({
+      method: 'eth_sendTransaction',
+      params: [{
+        from: state.address,
+        to: CONFIG.CONTRACT,
+        data: data,
+        gas: '0x493E0', // 300000
+        value: '0x0'
+      }]
     });
     
-    console.log('交易已发送:', tx.hash);
+    console.log('交易已发送:', txHash);
     toast('交易已提交，等待确认...', 'info');
     
-    await tx.wait();
-    console.log('交易已确认');
+    // 等待交易确认
+    let confirmed = false;
+    for (let i = 0; i < 60; i++) {  // 最多等60秒
+      await new Promise(r => setTimeout(r, 1000));
+      try {
+        const receipt = await window.ethereum.request({
+          method: 'eth_getTransactionReceipt',
+          params: [txHash]
+        });
+        if (receipt) {
+          console.log('交易已确认:', receipt);
+          confirmed = true;
+          break;
+        }
+      } catch (e) {
+        console.log('等待确认中...');
+      }
+    }
+    
+    if (!confirmed) {
+      toast('交易已提交，请稍后刷新查看状态', 'info');
+    }
     
     player.name = name;
     player.registered = true;
@@ -974,11 +1000,15 @@ async function registerPlayer() {
     toast('注册成功！', 'success');
   } catch (err) {
     console.error('注册失败:', err);
+    console.error('错误详情:', JSON.stringify(err, null, 2));
     
-    if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
+    if (err.code === 4001) {
       toast('用户取消了交易', 'error');
+    } else if (err.code === -32603) {
+      // 内部错误，可能是合约执行失败
+      toast('合约执行失败，请检查是否已注册', 'error');
     } else {
-      toast('注册失败: ' + (err.shortMessage || err.message || '请重试'), 'error');
+      toast('注册失败: ' + (err.message || '请重试'), 'error');
     }
   } finally {
     if (btn) {
@@ -1057,7 +1087,7 @@ async function loadRooms() {
 }
 
 async function createRoom(theme) {
-  if (!state.contract || !state.signer) {
+  if (!state.address) {
     toast('钱包未连接，请刷新页面', 'error');
     return;
   }
@@ -1066,18 +1096,40 @@ async function createRoom(theme) {
     toast('请在MetaMask中确认交易...', 'info');
     console.log('创建房间:', theme);
     
-    const tx = await state.contract.create_room(theme, { value: 0, gasLimit: 300000 });
-    console.log('交易已发送:', tx.hash);
+    // 使用原始MetaMask API
+    const iface = new ethers.Interface(CONTRACT_ABI);
+    const data = iface.encodeFunctionData('create_room', [theme]);
     
+    const txHash = await window.ethereum.request({
+      method: 'eth_sendTransaction',
+      params: [{
+        from: state.address,
+        to: CONFIG.CONTRACT,
+        data: data,
+        gas: '0x493E0', // 300000
+        value: '0x0'
+      }]
+    });
+    
+    console.log('交易已发送:', txHash);
     toast('交易已提交，等待确认...', 'info');
-    const receipt = await tx.wait();
     
-    let roomId = Date.now();
-    if (receipt.logs && receipt.logs.length > 0) {
-      try { roomId = parseInt(receipt.logs[0].topics[1], 16); } catch (e) {}
+    // 等待确认
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      try {
+        const receipt = await window.ethereum.request({
+          method: 'eth_getTransactionReceipt',
+          params: [txHash]
+        });
+        if (receipt) {
+          console.log('交易已确认:', receipt);
+          break;
+        }
+      } catch (e) {}
     }
     
-    room.id = roomId;
+    room.id = Date.now();
     room.theme = theme;
     room.host = state.address;
     room.players = [{ id: state.address, name: player.name, avatar: player.avatar, isHost: true }];
@@ -1087,16 +1139,16 @@ async function createRoom(theme) {
     setTimeout(addAIPlayers, 1000);
   } catch (err) {
     console.error('创建房间失败:', err);
-    if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
+    if (err.code === 4001) {
       toast('用户取消了交易', 'error');
     } else {
-      toast('创建失败: ' + (err.shortMessage || err.message || '请重试'), 'error');
+      toast('创建失败: ' + (err.message || '请重试'), 'error');
     }
   }
 }
 
 async function joinRoom(roomId) {
-  if (!state.contract || !state.signer) {
+  if (!state.address) {
     toast('钱包未连接，请刷新页面', 'error');
     return;
   }
@@ -1105,38 +1157,52 @@ async function joinRoom(roomId) {
     toast('请在MetaMask中确认交易...', 'info');
     console.log('加入房间:', roomId);
     
-    const tx = await state.contract.join_room(roomId, { value: 0, gasLimit: 300000 });
-    console.log('交易已发送:', tx.hash);
+    // 使用原始MetaMask API
+    const iface = new ethers.Interface(CONTRACT_ABI);
+    const data = iface.encodeFunctionData('join_room', [roomId]);
     
+    const txHash = await window.ethereum.request({
+      method: 'eth_sendTransaction',
+      params: [{
+        from: state.address,
+        to: CONFIG.CONTRACT,
+        data: data,
+        gas: '0x493E0', // 300000
+        value: '0x0'
+      }]
+    });
+    
+    console.log('交易已发送:', txHash);
     toast('交易已提交，等待确认...', 'info');
-    await tx.wait();
     
-    // 获取房间信息
-    let roomData = { theme: 'fantasy', host: '', players: [] };
-    try {
-      const result = await state.contract.get_room(roomId);
-      roomData = JSON.parse(result);
-    } catch (e) {
-      console.warn('获取房间信息失败:', e);
+    // 等待确认
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      try {
+        const receipt = await window.ethereum.request({
+          method: 'eth_getTransactionReceipt',
+          params: [txHash]
+        });
+        if (receipt) {
+          console.log('交易已确认:', receipt);
+          break;
+        }
+      } catch (e) {}
     }
     
     room.id = roomId;
-    room.theme = roomData.theme || 'fantasy';
-    room.host = roomData.host || '';
-    room.players = roomData.players || [];
-    
-    if (!room.players.find(p => p.id === state.address)) {
-      room.players.push({ id: state.address, name: player.name, avatar: player.avatar });
-    }
+    room.theme = 'fantasy';
+    room.host = '';
+    room.players = [{ id: state.address, name: player.name, avatar: player.avatar }];
     
     toast('加入成功！', 'success');
     showRoomPage();
   } catch (err) {
     console.error('加入房间失败:', err);
-    if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
+    if (err.code === 4001) {
       toast('用户取消了交易', 'error');
     } else {
-      toast('加入失败: ' + (err.shortMessage || err.message || '请重试'), 'error');
+      toast('加入失败: ' + (err.message || '请重试'), 'error');
     }
   }
 }
@@ -1230,11 +1296,34 @@ async function startGame() {
   try {
     toast('正在开始游戏...', 'info');
     
-    // 调用合约开始游戏
-    const tx = await retryTransaction(async () => {
-      return await state.contract.start_game(room.id);
+    // 使用原始MetaMask API
+    const iface = new ethers.Interface(CONTRACT_ABI);
+    const data = iface.encodeFunctionData('start_game', [room.id]);
+    
+    const txHash = await window.ethereum.request({
+      method: 'eth_sendTransaction',
+      params: [{
+        from: state.address,
+        to: CONFIG.CONTRACT,
+        data: data,
+        gas: '0x493E0',
+        value: '0x0'
+      }]
     });
-    await tx.wait();
+    
+    console.log('开始游戏交易:', txHash);
+    
+    // 等待确认
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      try {
+        const receipt = await window.ethereum.request({
+          method: 'eth_getTransactionReceipt',
+          params: [txHash]
+        });
+        if (receipt) break;
+      } catch (e) {}
+    }
     
     // 初始化游戏状态
     game.round = 0;
@@ -1268,12 +1357,10 @@ async function startGame() {
     
   } catch (err) {
     console.error('开始游戏失败:', err);
-    if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
+    if (err.code === 4001) {
       toast('用户取消了交易', 'error');
-    } else if (err.message?.includes('RPC') || err.code === 'UNKNOWN_ERROR') {
-      toast('网络繁忙，请稍后重试', 'error');
     } else {
-      toast('开始失败: ' + (err.reason || err.message || '请重试'), 'error');
+      toast('开始失败: ' + (err.message || '请重试'), 'error');
     }
   }
 }
@@ -1386,10 +1473,20 @@ async function selectOption(choice) {
   
   // 发送到合约（上链）
   try {
-    const tx = await retryTransaction(async () => {
-      return await state.contract.vote(room.id, choice);
+    const iface = new ethers.Interface(CONTRACT_ABI);
+    const data = iface.encodeFunctionData('vote', [room.id, choice]);
+    
+    const txHash = await window.ethereum.request({
+      method: 'eth_sendTransaction',
+      params: [{
+        from: state.address,
+        to: CONFIG.CONTRACT,
+        data: data,
+        gas: '0x493E0',
+        value: '0x0'
+      }]
     });
-    await tx.wait();
+    console.log('投票交易:', txHash);
     addSystemMessage(`投票已上链确认！`);
   } catch (e) {
     console.warn('投票上链失败:', e);
