@@ -532,14 +532,14 @@ const CONFIG = {
 };
 
 const CONTRACT_ABI = [
-  "function register_player(string name, string avatar) payable",
-  "function create_room(string theme) payable returns (uint256)",
-  "function join_room(uint256 roomId) payable",
-  "function start_game(uint256 roomId)",
-  "function vote(uint256 roomId, string choice)",
-  "function get_player(address) view returns (string)",
-  "function get_room(uint256 roomId) view returns (string)",
-  "function list_rooms() view returns (string)"
+  "function register_player(string memory name, string memory avatar) public payable",
+  "function create_room(string memory theme) public payable returns (uint256)",
+  "function join_room(uint256 roomId) public payable",
+  "function start_game(uint256 roomId) public",
+  "function vote(uint256 roomId, string memory choice) public",
+  "function get_player(address player) public view returns (string memory)",
+  "function get_room(uint256 roomId) public view returns (string memory)",
+  "function list_rooms() public view returns (string memory)"
 ];
 
 // ========== 故事系统 ==========
@@ -843,13 +843,23 @@ async function connectWallet() {
 }
 
 async function checkPlayerStatus() {
+  console.log('=== checkPlayerStatus 开始 ===');
+  console.log('当前状态:', { 
+    contract: !!state.contract, 
+    signer: !!state.signer, 
+    address: state.address 
+  });
+  
   try {
     let result;
     for (let i = 0; i < 3; i++) {
       try {
+        console.log(`尝试获取玩家信息 (${i+1}/3)...`);
         result = await state.contract.get_player(state.address);
+        console.log('获取结果:', result);
         break;
       } catch (e) {
+        console.warn(`第${i+1}次获取失败:`, e.message);
         if (i < 2) {
           await new Promise(r => setTimeout(r, 1500));
         } else {
@@ -861,6 +871,7 @@ async function checkPlayerStatus() {
     if (result && result !== '{}' && result !== 'null' && result !== '') {
       try {
         const data = JSON.parse(result);
+        console.log('解析的玩家数据:', data);
         if (data.name) {
           player.name = data.name;
           player.avatar = data.avatar || '🎮';
@@ -868,6 +879,7 @@ async function checkPlayerStatus() {
           showPlayerCard();
           showThemeSection();
           loadRooms();
+          console.log('玩家已注册，跳过注册表单');
           return;
         }
       } catch (parseErr) {
@@ -879,6 +891,7 @@ async function checkPlayerStatus() {
   }
   
   // 显示注册表单
+  console.log('显示注册表单');
   show('registerForm');
   initAvatarGrid();
 }
@@ -898,21 +911,107 @@ function selectAvatar(el, avatar) {
 }
 
 async function registerPlayer() {
-  const name = document.getElementById('registerName').value.trim();
+  console.log('=== registerPlayer 开始 ===');
+  
+  const nameInput = document.getElementById('registerName');
+  if (!nameInput) {
+    console.error('找不到名字输入框');
+    toast('页面错误，请刷新重试', 'error');
+    return;
+  }
+  
+  const name = nameInput.value.trim();
+  console.log('输入的名字:', name);
+  
   if (!name) {
     toast('请输入名字！', 'error');
     return;
   }
 
+  // 检查合约是否初始化，如果没有尝试自动重连
+  console.log('检查状态:', { 
+    hasContract: !!state.contract, 
+    hasSigner: !!state.signer,
+    address: state.address 
+  });
+  
+  if (!state.contract || !state.signer) {
+    console.warn('合约未初始化，尝试自动重连...');
+    toast('正在重新连接合约...', 'info');
+    
+    try {
+      if (!window.ethereum) {
+        toast('MetaMask未安装，请安装后刷新页面', 'error');
+        return;
+      }
+      
+      state.provider = new ethers.BrowserProvider(window.ethereum);
+      state.signer = await state.provider.getSigner();
+      state.address = await state.signer.getAddress();
+      state.contract = new ethers.Contract(CONFIG.CONTRACT, CONTRACT_ABI, state.signer);
+      
+      console.log('自动重连成功:', state.contract.target);
+      toast('重新连接成功！', 'success');
+    } catch (reconnectErr) {
+      console.error('自动重连失败:', reconnectErr);
+      toast('合约连接失败，请刷新页面重新连接钱包', 'error');
+      return;
+    }
+  }
+
+  // 禁用按钮防止重复点击
+  const btn = document.querySelector('#registerForm button');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '注册中...';
+  }
+
   try {
     toast('正在注册，请在MetaMask中确认交易...', 'info');
-    
-    const tx = await retryTransaction(async () => {
-      return await state.contract.register_player(name, player.avatar, { value: 0 });
+    console.log('准备调用合约:', { 
+      name, 
+      avatar: player.avatar, 
+      contractAddress: state.contract.target 
     });
     
+    // 调用合约 - 带重试机制
+    let tx;
+    let lastError;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`尝试发送交易 (${attempt}/3)...`);
+        tx = await state.contract.register_player(name, player.avatar, { value: 0 });
+        console.log('交易已发送:', tx.hash);
+        break;
+      } catch (e) {
+        lastError = e;
+        console.error(`第${attempt}次尝试失败:`, e);
+        
+        // 用户取消不重试
+        if (e.code === 4001 || e.code === 'ACTION_REJECTED') {
+          throw e;
+        }
+        
+        // RPC错误重试
+        if (attempt < 3 && (e.code === -32002 || e.code === 'UNKNOWN_ERROR' || 
+            e.code === -32603 || e.message?.includes('RPC'))) {
+          toast(`网络错误，重试中 (${attempt}/3)...`, 'info');
+          await new Promise(r => setTimeout(r, 2000));
+        } else if (attempt >= 3) {
+          throw e;
+        } else {
+          throw e;
+        }
+      }
+    }
+    
+    if (!tx) {
+      throw lastError || new Error('交易发送失败');
+    }
+    
     toast('交易已提交，等待确认...', 'info');
-    await tx.wait();
+    const receipt = await tx.wait();
+    console.log('交易已确认:', receipt);
     
     player.name = name;
     player.registered = true;
@@ -924,13 +1023,31 @@ async function registerPlayer() {
     
     toast('注册成功！交易已上链', 'success');
   } catch (err) {
-    console.error('注册失败:', err);
+    console.error('=== 注册失败详情 ===');
+    console.error('错误对象:', err);
+    console.error('错误代码:', err.code);
+    console.error('错误消息:', err.message);
+    console.error('错误原因:', err.reason);
+    console.error('完整错误:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
+    
     if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
       toast('用户取消了交易', 'error');
-    } else if (err.message?.includes('RPC') || err.code === 'UNKNOWN_ERROR') {
-      toast('网络繁忙，请稍后重试', 'error');
+    } else if (err.code === 'CALL_EXCEPTION') {
+      toast('合约调用失败: ' + (err.reason || err.revert || '请检查合约'), 'error');
+    } else if (err.code === 'INSUFFICIENT_FUNDS') {
+      toast('余额不足', 'error');
+    } else if (err.code === -32002) {
+      toast('请在MetaMask中处理待处理的请求', 'error');
+    } else if (err.message?.includes('RPC') || err.code === 'UNKNOWN_ERROR' || err.code === -32603) {
+      toast('RPC网络错误，请稍后重试', 'error');
     } else {
-      toast('注册失败: ' + (err.reason || err.message || '请重试'), 'error');
+      toast('注册失败: ' + (err.shortMessage || err.reason || err.message || '请重试'), 'error');
+    }
+  } finally {
+    // 恢复按钮状态
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '确认注册';
     }
   }
 }
@@ -1004,15 +1121,21 @@ async function loadRooms() {
 }
 
 async function createRoom(theme) {
+  if (!state.contract || !state.signer) {
+    toast('钱包未连接，请刷新页面重试', 'error');
+    return;
+  }
+
   try {
     toast('正在创建房间，请在MetaMask中确认交易...', 'info');
+    console.log('创建房间:', { theme, contract: state.contract.target });
     
-    const tx = await retryTransaction(async () => {
-      return await state.contract.create_room(theme, { value: 0 });
-    });
+    const tx = await state.contract.create_room(theme, { value: 0 });
+    console.log('交易已发送:', tx.hash);
     
     toast('交易已提交，等待确认...', 'info');
     const receipt = await tx.wait();
+    console.log('交易已确认:', receipt);
     
     // 尝试从事件获取房间ID
     let roomId = Date.now();
@@ -1033,24 +1156,32 @@ async function createRoom(theme) {
     // 添加AI玩家
     setTimeout(addAIPlayers, 1000);
   } catch (err) {
-    console.error('创建房间失败:', err);
+    console.error('创建房间失败详情:', err);
+    console.error('错误代码:', err.code);
     if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
       toast('用户取消了交易', 'error');
+    } else if (err.code === 'CALL_EXCEPTION') {
+      toast('合约调用失败: ' + (err.reason || '请检查合约'), 'error');
     } else if (err.message?.includes('RPC') || err.code === 'UNKNOWN_ERROR') {
-      toast('网络繁忙，请稍后重试', 'error');
+      toast('RPC网络错误，请稍后重试', 'error');
     } else {
-      toast('创建失败: ' + (err.reason || err.message || '请重试'), 'error');
+      toast('创建失败: ' + (err.shortMessage || err.message || '请重试'), 'error');
     }
   }
 }
 
 async function joinRoom(roomId) {
+  if (!state.contract || !state.signer) {
+    toast('钱包未连接，请刷新页面重试', 'error');
+    return;
+  }
+
   try {
     toast('正在加入房间，请在MetaMask中确认交易...', 'info');
+    console.log('加入房间:', { roomId, contract: state.contract.target });
     
-    const tx = await retryTransaction(async () => {
-      return await state.contract.join_room(roomId, { value: 0 });
-    });
+    const tx = await state.contract.join_room(roomId, { value: 0 });
+    console.log('交易已发送:', tx.hash);
     
     toast('交易已提交，等待确认...', 'info');
     await tx.wait();
@@ -1077,13 +1208,16 @@ async function joinRoom(roomId) {
     toast('加入成功！交易已上链', 'success');
     showRoomPage();
   } catch (err) {
-    console.error('加入房间失败:', err);
+    console.error('加入房间失败详情:', err);
+    console.error('错误代码:', err.code);
     if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
       toast('用户取消了交易', 'error');
+    } else if (err.code === 'CALL_EXCEPTION') {
+      toast('合约调用失败: ' + (err.reason || '请检查合约'), 'error');
     } else if (err.message?.includes('RPC') || err.code === 'UNKNOWN_ERROR') {
-      toast('网络繁忙，请稍后重试', 'error');
+      toast('RPC网络错误，请稍后重试', 'error');
     } else {
-      toast('加入失败: ' + (err.reason || err.message || '请重试'), 'error');
+      toast('加入失败: ' + (err.shortMessage || err.message || '请重试'), 'error');
     }
   }
 }
@@ -1644,6 +1778,44 @@ if (window.ethereum) {
   window.ethereum.on('accountsChanged', () => location.reload());
   window.ethereum.on('chainChanged', () => location.reload());
 }
+
+// 调试功能 - 在控制台输入 debug() 查看当前状态
+window.debug = function() {
+  console.log('========== 调试信息 ==========');
+  console.log('State:', {
+    hasProvider: !!state.provider,
+    hasSigner: !!state.signer,
+    hasContract: !!state.contract,
+    contractAddress: state.contract?.target,
+    userAddress: state.address,
+    balance: state.balance
+  });
+  console.log('Player:', player);
+  console.log('Room:', room);
+  console.log('Game:', game);
+  console.log('================================');
+  return { state, player, room, game };
+};
+
+// 快速重新连接合约
+window.reconnect = async function() {
+  if (!window.ethereum) {
+    console.error('MetaMask未安装');
+    return;
+  }
+  try {
+    state.provider = new ethers.BrowserProvider(window.ethereum);
+    state.signer = await state.provider.getSigner();
+    state.contract = new ethers.Contract(CONFIG.CONTRACT, CONTRACT_ABI, state.signer);
+    console.log('重新连接成功！合约地址:', state.contract.target);
+    return true;
+  } catch (e) {
+    console.error('重新连接失败:', e);
+    return false;
+  }
+};
+
+console.log('共识编年史已加载。调试命令: debug() 查看状态, reconnect() 重新连接合约');
 </script>
 </body>
 </html>
