@@ -162,7 +162,7 @@
   <div class="wallet-bar">
     <div class="logo">📜 共识编年史</div>
     <div class="wallet-info">
-      <span class="network-badge" id="networkBadge">GenLayer Testnet</span>
+      <span class="network-badge" id="networkBadge">GenLayer Studio</span>
       <span class="balance" id="balanceDisplay">0.0000 GEN</span>
       <span class="address" id="addressDisplay"></span>
       <button class="btn btn-danger hidden" id="disconnectBtn" onclick="disconnect()">断开</button>
@@ -242,7 +242,7 @@
 <script>
 const CONFIG = {
   CHAIN_ID: '0xa2c4',
-  RPC_URL: 'https://studio-rpc.genlayer.com',
+  RPC_URL: 'https://studio.genlayer.com',
   CONTRACT: '0x4F5F132ba540f1C685B0188D59990302903aE186',
   ROOM_SIZE: { min: 2, max: 8 },
   DEBATE_DURATION: 90,
@@ -377,7 +377,7 @@ async function connectWallet() {
       await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CONFIG.CHAIN_ID }] });
     } catch (e) {
       if (e.code === 4902) {
-        await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: CONFIG.CHAIN_ID, chainName: 'GenLayer Testnet', rpcUrls: [CONFIG.RPC_URL], nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 } }] });
+        await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: CONFIG.CHAIN_ID, chainName: 'GenLayer Studio', rpcUrls: [CONFIG.RPC_URL], nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 } }] });
       }
     }
     const balanceHex = await window.ethereum.request({ method: 'eth_getBalance', params: [state.address, 'latest'] });
