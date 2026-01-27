@@ -4,168 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>共识编年史 - Consensus Chronicle</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/msgpack-lite@0.1.26/dist/msgpack.min.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%); min-height: 100vh; color: #e8e8e8; }
-    .wallet-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 1.5rem; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(167,139,250,0.2); }
-    .logo { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 600; }
-    .wallet-info { display: flex; align-items: center; gap: 1rem; }
-    .network-badge { padding: 0.3rem 0.8rem; background: rgba(74,222,128,0.2); border: 1px solid rgba(74,222,128,0.4); border-radius: 20px; font-size: 0.8rem; color: #4ade80; }
-    .balance { color: #4ade80; font-weight: 600; }
-    .address { font-family: monospace; color: #a5a5b8; font-size: 0.85rem; }
-    .btn { padding: 0.6rem 1.2rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-    .btn-primary { background: linear-gradient(135deg, #a78bfa, #f472b6); color: white; }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(167,139,250,0.4); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-    .btn-secondary { background: rgba(255,255,255,0.1); color: #e8e8e8; border: 1px solid rgba(255,255,255,0.2); }
-    .btn-danger { background: #ef4444; color: white; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 5rem 1.5rem 2rem; }
-    .hidden { display: none !important; }
-    .toast-container { position: fixed; top: 80px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; }
-    .toast { padding: 1rem 1.5rem; border-radius: 8px; color: white; animation: slideIn 0.3s ease; max-width: 350px; }
-    .toast.success { background: linear-gradient(135deg, #059669, #10b981); }
-    .toast.error { background: linear-gradient(135deg, #dc2626, #ef4444); }
-    .toast.info { background: linear-gradient(135deg, #2563eb, #3b82f6); }
-    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    .hero { text-align: center; margin-bottom: 3rem; }
-    .hero-icon { font-size: 5rem; margin-bottom: 1rem; }
-    .hero h1 { font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #a78bfa, #f472b6, #fb923c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
-    .hero .subtitle { color: #8b8b9e; letter-spacing: 0.3em; text-transform: uppercase; margin-bottom: 1rem; }
-    .hero .desc { color: #a5a5b8; font-style: italic; }
-    .contract-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); border-radius: 20px; margin-top: 1rem; }
-    .contract-badge .dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    .connect-section { text-align: center; margin: 3rem 0; }
-    .connect-btn { display: inline-flex; align-items: center; gap: 0.8rem; padding: 1rem 2rem; font-size: 1.1rem; }
-    .player-card { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem; background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.3); border-radius: 12px; margin: 1.5rem auto; max-width: 400px; }
-    .player-card .avatar { font-size: 2.5rem; }
-    .player-card .name { font-size: 1.2rem; font-weight: 600; flex: 1; }
-    .register-form { max-width: 500px; margin: 2rem auto; padding: 2rem; background: rgba(255,255,255,0.03); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
-    .register-form h3 { text-align: center; margin-bottom: 1.5rem; color: #c4b5fd; }
-    .register-form input { width: 100%; padding: 1rem; margin-bottom: 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; font-size: 1rem; }
-    .register-form input:focus { outline: none; border-color: rgba(167,139,250,0.5); }
-    .avatar-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
-    .avatar-option { padding: 0.8rem; text-align: center; font-size: 1.5rem; background: rgba(255,255,255,0.05); border: 2px solid transparent; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-    .avatar-option:hover { background: rgba(255,255,255,0.1); }
-    .avatar-option.selected { border-color: #a78bfa; background: rgba(167,139,250,0.2); }
-    .theme-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-    .theme-card { display: flex; flex-direction: column; align-items: center; padding: 2rem; background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; cursor: pointer; transition: all 0.3s; }
-    .theme-card:hover { transform: translateY(-5px); border-color: rgba(167,139,250,0.5); }
-    .theme-card .icon { font-size: 3rem; margin-bottom: 1rem; }
-    .theme-card .name { font-size: 1.2rem; font-weight: 600; }
-    .theme-card .desc { font-size: 0.85rem; color: #6b6b7e; margin-top: 0.5rem; }
-    .room-list { margin-top: 2rem; }
-    .room-list h3 { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; color: #c4b5fd; }
-    .room-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 0.8rem; cursor: pointer; transition: all 0.2s; }
-    .room-item:hover { background: rgba(255,255,255,0.05); border-color: rgba(167,139,250,0.3); }
-    .room-item .theme-icon { font-size: 2rem; }
-    .room-item .info { flex: 1; }
-    .room-item .theme-name { font-weight: 600; }
-    .room-item .host { font-size: 0.85rem; color: #8b8b9e; }
-    .room-item .players { color: #4ade80; font-weight: 600; }
-    .no-rooms { text-align: center; padding: 2rem; color: #6b6b7e; }
-    .loading { display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(167,139,250,0.3); border-top-color: #a78bfa; border-radius: 50%; animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .room-view { max-width: 800px; margin: 0 auto; }
-    .room-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
-    .player-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
-    .player-slot { display: flex; flex-direction: column; align-items: center; padding: 1.5rem 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; position: relative; }
-    .player-slot.host { border-color: rgba(251,191,36,0.5); background: rgba(251,191,36,0.1); }
-    .player-slot.ai { border-color: rgba(59,130,246,0.5); }
-    .player-slot .avatar { font-size: 2.5rem; margin-bottom: 0.5rem; }
-    .player-slot .name { font-size: 0.95rem; text-align: center; }
-    .player-slot .badge { position: absolute; top: 0.5rem; right: 0.5rem; font-size: 0.6rem; padding: 0.2rem 0.4rem; border-radius: 4px; }
-    .badge-host { background: #fbbf24; color: #000; }
-    .badge-ai { background: #3b82f6; color: #fff; }
-    .empty-slot { opacity: 0.4; border-style: dashed; }
-    .game-view { display: flex; flex-direction: column; height: calc(100vh - 60px); padding-top: 60px; }
-    .game-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem; background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.1); }
-    .game-main { flex: 1; display: flex; gap: 1rem; padding: 1rem; overflow: hidden; }
-    .story-panel { flex: 1; display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
-    .story-scroll { flex: 1; background: rgba(255,255,255,0.03); border-radius: 12px; padding: 1rem; overflow-y: auto; }
-    .story-scroll h3 { color: #c4b5fd; margin-bottom: 1rem; font-size: 1rem; }
-    .story-item { padding: 0.6rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); line-height: 1.7; }
-    .story-item:last-child { border-bottom: none; }
-    .story-item.opening { color: #c4b5fd; font-style: italic; }
-    .story-item.context { color: #fbbf24; }
-    .story-item.choice { color: #4ade80; }
-    .story-item.consequence { color: #a5a5b8; padding-left: 1.5rem; border-left: 2px solid rgba(167,139,250,0.3); }
-    .round-badge { background: rgba(251,191,36,0.2); padding: 0.2rem 0.5rem; border-radius: 4px; margin-right: 0.5rem; }
-    .options-panel { background: rgba(255,255,255,0.02); border-radius: 12px; padding: 1rem; }
-    .options-panel h4 { text-align: center; margin-bottom: 1rem; }
-    .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .option-card { padding: 1rem; border-radius: 10px; cursor: pointer; transition: all 0.3s; }
-    .option-card.option-a { border: 2px solid rgba(239,68,68,0.4); background: rgba(239,68,68,0.1); }
-    .option-card.option-b { border: 2px solid rgba(59,130,246,0.4); background: rgba(59,130,246,0.1); }
-    .option-card.selected { transform: scale(1.02); }
-    .option-card.option-a.selected { border-color: #ef4444; }
-    .option-card.option-b.selected { border-color: #3b82f6; }
-    .option-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
-    .option-label { font-weight: 700; font-size: 1.1rem; }
-    .option-label.label-a { color: #ef4444; }
-    .option-label.label-b { color: #3b82f6; }
-    .option-tag { font-size: 0.75rem; padding: 0.2rem 0.5rem; background: rgba(255,255,255,0.1); border-radius: 4px; color: #a5a5b8; }
-    .option-text { line-height: 1.5; font-size: 0.9rem; }
-    .vote-count { margin-top: 0.8rem; text-align: center; font-size: 1.2rem; font-weight: 600; color: #fbbf24; }
-    .chat-panel { width: 320px; display: flex; flex-direction: column; background: rgba(0,0,0,0.2); border-radius: 12px; overflow: hidden; }
-    .chat-players { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
-    .chat-player { display: flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.6rem; background: rgba(255,255,255,0.05); border-radius: 15px; font-size: 0.8rem; }
-    .chat-player.voted { background: rgba(74,222,128,0.2); border: 1px solid rgba(74,222,128,0.4); }
-    .chat-player .vote-badge { color: #4ade80; font-weight: 700; }
-    .chat-messages { flex: 1; overflow-y: auto; padding: 0.8rem; }
-    .chat-msg { margin-bottom: 0.6rem; font-size: 0.85rem; }
-    .chat-msg.system { color: #a78bfa; font-style: italic; padding: 0.3rem 0; }
-    .chat-msg.player { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 0.5rem 0.8rem; }
-    .chat-msg .sender { color: #fbbf24; font-weight: 600; margin-bottom: 0.3rem; display: flex; justify-content: space-between; align-items: center; }
-    .chat-msg .stance { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; }
-    .chat-msg .stance.stance-a { background: rgba(239,68,68,0.3); }
-    .chat-msg .stance.stance-b { background: rgba(59,130,246,0.3); }
-    .chat-input { padding: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); }
-    .chat-input-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
-    .chat-input input { flex: 1; padding: 0.6rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 0.85rem; }
-    .chat-input input:focus { outline: none; border-color: rgba(167,139,250,0.5); }
-    .quick-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-    .quick-btn { padding: 0.3rem 0.6rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; color: #a5a5b8; font-size: 0.75rem; cursor: pointer; }
-    .quick-btn:hover { background: rgba(255,255,255,0.1); }
-    .quick-btn.btn-a { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.3); color: #ef4444; }
-    .quick-btn.btn-b { background: rgba(59,130,246,0.2); border-color: rgba(59,130,246,0.3); color: #3b82f6; }
-    .vote-prompt { padding: 1rem; text-align: center; background: rgba(167,139,250,0.1); }
-    .vote-prompt p { color: #fbbf24; font-weight: 600; }
-    .timer { font-size: 2.5rem; font-weight: 700; font-family: monospace; }
-    .timer.warning { color: #f87171; }
-    .timer.normal { color: #a78bfa; }
-    .progress-dots { display: flex; align-items: center; gap: 0.5rem; }
-    .progress-dot { width: 12px; height: 12px; border-radius: 50%; }
-    .progress-dot.done { background: #4ade80; }
-    .progress-dot.current { background: #a78bfa; }
-    .progress-dot.pending { background: rgba(255,255,255,0.2); }
-    .phase-badge { font-size: 1.1rem; font-weight: 600; }
-    .score-display { text-align: right; }
-    .score-label { font-size: 0.85rem; color: #8b8b9e; }
-    .score-value { font-size: 1.5rem; font-weight: 700; color: #fbbf24; }
-    .end-panel { background: linear-gradient(145deg, rgba(251,191,36,0.1), rgba(167,139,250,0.1)); border-radius: 12px; padding: 2rem; text-align: center; }
-    .end-panel h2 { font-size: 1.8rem; margin-bottom: 1.5rem; color: #fbbf24; }
-    .ranking-list { max-width: 400px; margin: 0 auto 1.5rem; }
-    .ranking-item { display: flex; align-items: center; gap: 0.8rem; padding: 0.8rem; margin-bottom: 0.4rem; background: rgba(255,255,255,0.03); border-radius: 8px; }
-    .ranking-item.first { background: rgba(251,191,36,0.2); border: 1px solid rgba(251,191,36,0.3); }
-    .ranking-item .rank { font-weight: 700; width: 1.5rem; }
-    .ranking-item .rank.top { color: #fbbf24; }
-    .ranking-item .avatar { font-size: 1.3rem; }
-    .ranking-item .name { flex: 1; }
-    .ranking-item .points { font-weight: 600; color: #a78bfa; }
+    *{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;background:linear-gradient(135deg,#0f0f1a 0%,#1a1a2e 50%,#16213e 100%);min-height:100vh;color:#e8e8e8}.top-bar{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;justify-content:space-between;align-items:center;padding:.8rem 1.5rem;background:rgba(0,0,0,.8);backdrop-filter:blur(10px);border-bottom:1px solid rgba(167,139,250,.2)}.logo{display:flex;align-items:center;gap:.5rem;font-size:1.1rem;font-weight:600}.status-group{display:flex;align-items:center;gap:1rem}.status-badge{padding:.3rem .8rem;border-radius:20px;font-size:.8rem;display:flex;align-items:center;gap:.4rem}.status-badge .dot{width:8px;height:8px;border-radius:50%}.firebase-status{background:rgba(251,146,60,.2);border:1px solid rgba(251,146,60,.4);color:#fb923c}.firebase-status .dot{background:#fb923c}.firebase-status.connected{background:rgba(74,222,128,.2);border-color:rgba(74,222,128,.4);color:#4ade80}.firebase-status.connected .dot{background:#4ade80}.wallet-status{background:rgba(167,139,250,.2);border:1px solid rgba(167,139,250,.4);color:#a78bfa}.wallet-status.connected{background:rgba(74,222,128,.2);border-color:rgba(74,222,128,.4);color:#4ade80}.wallet-address{font-family:monospace;color:#a5a5b8;font-size:.85rem}.btn{padding:.6rem 1.2rem;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:all .2s}.btn-primary{background:linear-gradient(135deg,#a78bfa,#f472b6);color:#fff}.btn-primary:hover{transform:translateY(-2px);box-shadow:0 4px 15px rgba(167,139,250,.4)}.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}.btn-secondary{background:rgba(255,255,255,.1);color:#e8e8e8;border:1px solid rgba(255,255,255,.2)}.btn-small{padding:.4rem .8rem;font-size:.85rem}.container{max-width:1200px;margin:0 auto;padding:5rem 1.5rem 2rem}.hidden{display:none!important}.toast-container{position:fixed;top:80px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:.5rem}.toast{padding:1rem 1.5rem;border-radius:8px;color:#fff;animation:slideIn .3s ease;max-width:350px}.toast.success{background:linear-gradient(135deg,#059669,#10b981)}.toast.error{background:linear-gradient(135deg,#dc2626,#ef4444)}.toast.info{background:linear-gradient(135deg,#2563eb,#3b82f6)}@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}.hero{text-align:center;margin-bottom:3rem}.hero-icon{font-size:5rem;margin-bottom:1rem}.hero h1{font-size:3rem;font-weight:800;background:linear-gradient(135deg,#a78bfa,#f472b6,#fb923c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.5rem}.hero .subtitle{color:#8b8b9e;letter-spacing:.3em;text-transform:uppercase;margin-bottom:1rem}.hero .desc{color:#a5a5b8;font-style:italic}.tech-badges{display:flex;justify-content:center;gap:1rem;margin-top:1.5rem;flex-wrap:wrap}.tech-badge{display:flex;align-items:center;gap:.5rem;padding:.5rem 1rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;font-size:.85rem}.tech-badge.firebase{border-color:rgba(251,146,60,.3);color:#fb923c}.tech-badge.genlayer{border-color:rgba(167,139,250,.3);color:#a78bfa}.setup-section{max-width:500px;margin:2rem auto}.setup-card{padding:2rem;background:rgba(255,255,255,.03);border-radius:16px;border:1px solid rgba(255,255,255,.1);margin-bottom:1.5rem}.setup-card h3{margin-bottom:1rem;color:#c4b5fd;display:flex;align-items:center;gap:.5rem}.setup-card input{width:100%;padding:1rem;margin-bottom:1rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:1rem}.setup-card input:focus{outline:none;border-color:rgba(167,139,250,.5)}.avatar-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:.5rem;margin-bottom:1rem}.avatar-option{padding:.8rem;text-align:center;font-size:1.5rem;background:rgba(255,255,255,.05);border:2px solid transparent;border-radius:8px;cursor:pointer;transition:all .2s}.avatar-option:hover{background:rgba(255,255,255,.1)}.avatar-option.selected{border-color:#a78bfa;background:rgba(167,139,250,.2)}.theme-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.5rem;margin-bottom:2rem}.theme-card{display:flex;flex-direction:column;align-items:center;padding:2rem;background:linear-gradient(145deg,rgba(255,255,255,.05),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);border-radius:16px;cursor:pointer;transition:all .3s}.theme-card:hover{transform:translateY(-5px);border-color:rgba(167,139,250,.5)}.theme-card .icon{font-size:3rem;margin-bottom:1rem}.theme-card .name{font-size:1.2rem;font-weight:600}.theme-card .desc{font-size:.85rem;color:#6b6b7e;margin-top:.5rem}.room-list{margin-top:2rem}.room-list h3{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;color:#c4b5fd}.room-item{display:flex;align-items:center;gap:1rem;padding:1rem;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:12px;margin-bottom:.8rem;cursor:pointer;transition:all .2s}.room-item:hover{background:rgba(255,255,255,.05);border-color:rgba(167,139,250,.3)}.room-item .theme-icon{font-size:2rem}.room-item .info{flex:1}.room-item .theme-name{font-weight:600}.room-item .host{font-size:.85rem;color:#8b8b9e}.room-item .players{color:#4ade80;font-weight:600}.no-rooms{text-align:center;padding:2rem;color:#6b6b7e}.loading{display:inline-block;width:20px;height:20px;border:2px solid rgba(167,139,250,.3);border-top-color:#a78bfa;border-radius:50%;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.room-view{max-width:800px;margin:0 auto}.room-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid rgba(255,255,255,.1)}.player-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem}.player-slot{display:flex;flex-direction:column;align-items:center;padding:1.5rem 1rem;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:12px;position:relative;transition:all .3s}.player-slot.host{border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.1)}.player-slot.me{border-color:rgba(167,139,250,.5)}.player-slot .avatar{font-size:2.5rem;margin-bottom:.5rem}.player-slot .name{font-size:.95rem;text-align:center}.player-slot .badge{position:absolute;top:.5rem;right:.5rem;font-size:.6rem;padding:.2rem .4rem;border-radius:4px}.badge-host{background:#fbbf24;color:#000}.badge-me{background:#a78bfa;color:#fff}.empty-slot{opacity:.4;border-style:dashed}.game-view{display:flex;flex-direction:column;height:calc(100vh - 60px);padding-top:60px}.game-header{display:flex;justify-content:space-between;align-items:center;padding:1rem 2rem;background:rgba(0,0,0,.3);border-bottom:1px solid rgba(255,255,255,.1)}.game-main{flex:1;display:flex;gap:1rem;padding:1rem;overflow:hidden}.story-panel{flex:1;display:flex;flex-direction:column;gap:1rem;min-width:0}.story-scroll{flex:1;background:rgba(255,255,255,.03);border-radius:12px;padding:1rem;overflow-y:auto}.story-scroll h3{color:#c4b5fd;margin-bottom:1rem;font-size:1rem}.story-item{padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.05);line-height:1.7}.story-item:last-child{border-bottom:none}.story-item.opening{color:#c4b5fd;font-style:italic}.story-item.context{color:#fbbf24}.story-item.choice{color:#4ade80}.story-item.consequence{color:#a5a5b8;padding-left:1.5rem;border-left:2px solid rgba(167,139,250,.3)}.round-badge{background:rgba(251,191,36,.2);padding:.2rem .5rem;border-radius:4px;margin-right:.5rem}.options-panel{background:rgba(255,255,255,.02);border-radius:12px;padding:1rem}.options-panel h4{text-align:center;margin-bottom:1rem}.options-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.option-card{padding:1rem;border-radius:10px;cursor:pointer;transition:all .3s}.option-card.option-a{border:2px solid rgba(239,68,68,.4);background:rgba(239,68,68,.1)}.option-card.option-b{border:2px solid rgba(59,130,246,.4);background:rgba(59,130,246,.1)}.option-card.selected{transform:scale(1.02)}.option-card.option-a.selected{border-color:#ef4444}.option-card.option-b.selected{border-color:#3b82f6}.option-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem}.option-label{font-weight:700;font-size:1.1rem}.option-label.label-a{color:#ef4444}.option-label.label-b{color:#3b82f6}.option-tag{font-size:.75rem;padding:.2rem .5rem;background:rgba(255,255,255,.1);border-radius:4px;color:#a5a5b8}.option-text{line-height:1.5;font-size:.9rem}.vote-count{margin-top:.8rem;text-align:center;font-size:1.2rem;font-weight:600;color:#fbbf24}.voter-avatars{display:flex;justify-content:center;gap:.3rem;margin-top:.5rem;flex-wrap:wrap}.voter-avatar{font-size:1.2rem}.chat-panel{width:320px;display:flex;flex-direction:column;background:rgba(0,0,0,.2);border-radius:12px;overflow:hidden}.chat-players{display:flex;flex-wrap:wrap;gap:.4rem;padding:.8rem;border-bottom:1px solid rgba(255,255,255,.05)}.chat-player{display:flex;align-items:center;gap:.3rem;padding:.3rem .6rem;background:rgba(255,255,255,.05);border-radius:15px;font-size:.8rem;transition:all .3s}.chat-player.voted{background:rgba(74,222,128,.2);border:1px solid rgba(74,222,128,.4)}.chat-player .vote-badge{color:#4ade80;font-weight:700}.chat-messages{flex:1;overflow-y:auto;padding:.8rem}.chat-msg{margin-bottom:.6rem;font-size:.85rem;animation:fadeIn .3s ease}@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.chat-msg.system{color:#a78bfa;font-style:italic;padding:.3rem 0}.chat-msg.player{background:rgba(255,255,255,.03);border-radius:8px;padding:.5rem .8rem}.chat-msg .sender{color:#fbbf24;font-weight:600;margin-bottom:.3rem;display:flex;justify-content:space-between;align-items:center}.chat-msg .stance{font-size:.7rem;padding:.1rem .4rem;border-radius:4px}.chat-msg .stance.stance-a{background:rgba(239,68,68,.3)}.chat-msg .stance.stance-b{background:rgba(59,130,246,.3)}.chat-input{padding:.8rem;border-top:1px solid rgba(255,255,255,.05)}.chat-input-row{display:flex;gap:.5rem;margin-bottom:.5rem}.chat-input input{flex:1;padding:.6rem .8rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:.85rem}.chat-input input:focus{outline:none;border-color:rgba(167,139,250,.5)}.quick-btns{display:flex;gap:.4rem;flex-wrap:wrap}.quick-btn{padding:.3rem .6rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:15px;color:#a5a5b8;font-size:.75rem;cursor:pointer}.quick-btn:hover{background:rgba(255,255,255,.1)}.quick-btn.btn-a{background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.3);color:#ef4444}.quick-btn.btn-b{background:rgba(59,130,246,.2);border-color:rgba(59,130,246,.3);color:#3b82f6}.vote-prompt{padding:1rem;text-align:center;background:rgba(167,139,250,.1)}.vote-prompt p{color:#fbbf24;font-weight:600}.timer{font-size:2.5rem;font-weight:700;font-family:monospace}.timer.warning{color:#f87171;animation:pulse 1s infinite}.timer.normal{color:#a78bfa}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}.progress-dots{display:flex;align-items:center;gap:.5rem}.progress-dot{width:12px;height:12px;border-radius:50%;transition:all .3s}.progress-dot.done{background:#4ade80}.progress-dot.current{background:#a78bfa;box-shadow:0 0 10px rgba(167,139,250,.5)}.progress-dot.pending{background:rgba(255,255,255,.2)}.phase-badge{font-size:1.1rem;font-weight:600}.score-display{text-align:right}.score-label{font-size:.85rem;color:#8b8b9e}.score-value{font-size:1.5rem;font-weight:700;color:#fbbf24}.end-panel{background:linear-gradient(145deg,rgba(251,191,36,.1),rgba(167,139,250,.1));border-radius:12px;padding:2rem;text-align:center}.end-panel h2{font-size:1.8rem;margin-bottom:1.5rem;color:#fbbf24}.ranking-list{max-width:400px;margin:0 auto 1.5rem}.ranking-item{display:flex;align-items:center;gap:.8rem;padding:.8rem;margin-bottom:.4rem;background:rgba(255,255,255,.03);border-radius:8px}.ranking-item.first{background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3)}.ranking-item .rank{font-weight:700;width:1.5rem}.ranking-item .rank.top{color:#fbbf24}.ranking-item .avatar{font-size:1.3rem}.ranking-item .name{flex:1}.ranking-item .points{font-weight:600;color:#a78bfa}.chain-record{margin-top:1rem;padding:1rem;background:rgba(167,139,250,.1);border-radius:8px}.chain-record p{font-size:.9rem;color:#a78bfa}.chain-record a{color:#4ade80;text-decoration:none}
   </style>
 </head>
 <body>
   <div class="toast-container" id="toastContainer"></div>
-  <div class="wallet-bar">
+  <div class="top-bar">
     <div class="logo">📜 共识编年史</div>
-    <div class="wallet-info">
-      <span class="network-badge" id="networkBadge">GenLayer Studio</span>
-      <span class="balance" id="balanceDisplay">0.0000 GEN</span>
-      <span class="address" id="addressDisplay"></span>
-      <button class="btn btn-danger hidden" id="disconnectBtn" onclick="disconnect()">断开</button>
+    <div class="status-group">
+      <div class="status-badge firebase-status" id="firebaseStatus"><span class="dot"></span><span>Firebase</span></div>
+      <div class="status-badge wallet-status" id="walletStatus"><span>GenLayer</span></div>
+      <span class="wallet-address" id="walletAddress"></span>
+      <button class="btn btn-small btn-secondary hidden" id="connectWalletBtn" onclick="connectWallet()">连接钱包</button>
     </div>
   </div>
   <div class="container" id="homePage">
@@ -174,50 +29,52 @@
       <h1>共识编年史</h1>
       <p class="subtitle">CONSENSUS CHRONICLE</p>
       <p class="desc">共识如何塑造历史？你的选择将改写命运。</p>
-      <div class="contract-badge"><span class="dot"></span><span>合约: 0x4F5F...aE186</span></div>
+      <div class="tech-badges">
+        <div class="tech-badge firebase">🔥 Firebase 实时同步</div>
+        <div class="tech-badge genlayer">⛓️ GenLayer 永久记录</div>
+      </div>
     </div>
-    <div class="connect-section" id="connectSection">
-      <button class="btn btn-primary connect-btn" onclick="connectWallet()">🦊 连接 MetaMask</button>
-      <p style="margin-top: 1rem; color: #6b6b7e; font-size: 0.9rem;">需要安装 MetaMask 钱包</p>
+    <div class="setup-section" id="setupSection">
+      <div class="setup-card">
+        <h3>🎭 创建你的角色</h3>
+        <input type="text" id="playerNameInput" placeholder="输入你的名字..." maxlength="20">
+        <div class="avatar-grid" id="avatarGrid"></div>
+        <button class="btn btn-primary" style="width:100%;" onclick="confirmPlayer()">确认角色</button>
+      </div>
     </div>
-    <div id="playerCard" class="player-card hidden">
-      <span class="avatar" id="playerAvatar">🎮</span>
-      <span class="name" id="playerName"></span>
-      <span class="balance" id="playerBalance" style="color: #4ade80;">0 GEN</span>
-    </div>
-    <div id="registerForm" class="register-form hidden">
-      <h3>🎭 创建你的角色</h3>
-      <input type="text" id="registerName" placeholder="输入你的名字..." maxlength="20">
-      <div class="avatar-grid" id="avatarGrid"></div>
-      <button class="btn btn-primary" style="width: 100%;" onclick="registerPlayer()">确认注册</button>
-    </div>
-    <div id="themeSection" class="hidden">
-      <h2 style="text-align: center; margin-bottom: 1.5rem; color: #c4b5fd;">选择主题，开启冒险</h2>
+    <div id="mainMenu" class="hidden">
+      <div style="text-align:center;margin-bottom:2rem;">
+        <div style="display:inline-flex;align-items:center;gap:1rem;padding:1rem 2rem;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3);border-radius:50px;">
+          <span style="font-size:2rem;" id="myAvatar">🎮</span>
+          <span style="font-size:1.3rem;font-weight:600;" id="myName"></span>
+        </div>
+      </div>
+      <h2 style="text-align:center;margin-bottom:1.5rem;color:#c4b5fd;">选择主题，开启冒险</h2>
       <div class="theme-grid" id="themeGrid"></div>
       <div class="room-list">
-        <h3>🚪 可加入的房间 <button class="btn btn-secondary" style="margin-left: auto; padding: 0.3rem 0.8rem; font-size: 0.8rem;" onclick="loadRooms()">刷新</button></h3>
-        <div id="roomList"><div class="no-rooms">加载中...</div></div>
+        <h3>🚪 可加入的房间<button class="btn btn-small btn-secondary" onclick="refreshRooms()">刷新</button></h3>
+        <div id="roomList"><div class="no-rooms"><span class="loading"></span> 连接中...</div></div>
       </div>
     </div>
   </div>
   <div id="roomPage" class="container room-view hidden">
     <div class="room-header">
       <button class="btn btn-secondary" onclick="leaveRoom()">← 返回</button>
-      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.3rem;">
+      <div style="display:flex;align-items:center;gap:.5rem;font-size:1.3rem;">
         <span id="roomThemeIcon">🏰</span>
-        <span id="roomThemeName" style="font-weight: 600;"></span>
+        <span id="roomThemeName" style="font-weight:600;"></span>
       </div>
-      <span id="roomId" style="font-size: 0.9rem; color: #6b6b7e; font-family: monospace;"></span>
+      <span id="roomIdDisplay" style="font-size:.9rem;color:#6b6b7e;font-family:monospace;"></span>
     </div>
-    <h3 style="margin-bottom: 1rem; color: #8b8b9e;">玩家 (<span id="playerCount">0</span>/8)</h3>
+    <h3 style="margin-bottom:1rem;color:#8b8b9e;">玩家 (<span id="playerCount">0</span>/8)</h3>
     <div class="player-grid" id="playerGrid"></div>
-    <button id="startGameBtn" class="btn btn-primary" style="width: 100%; padding: 1rem; font-size: 1.2rem;" onclick="startGame()">🎮 开始游戏</button>
-    <p id="waitingMsg" style="text-align: center; color: #6b6b7e; margin-top: 1rem;"></p>
+    <button id="startGameBtn" class="btn btn-primary hidden" style="width:100%;padding:1rem;font-size:1.2rem;" onclick="startGame()">🎮 开始游戏</button>
+    <p id="waitingMsg" style="text-align:center;color:#6b6b7e;margin-top:1rem;"></p>
   </div>
   <div id="gameView" class="game-view hidden">
     <div class="game-header">
       <div>
-        <div style="font-size: 0.9rem; color: #8b8b9e;">第 <span id="roundNum">1</span> / 5 轮</div>
+        <div style="font-size:.9rem;color:#8b8b9e;">第 <span id="roundNum">1</span> / 5 轮</div>
         <div class="phase-badge" id="phaseBadge">💬 辩论中</div>
       </div>
       <div class="progress-dots" id="progressDots"></div>
@@ -240,73 +97,43 @@
     </div>
   </div>
 <script>
-const CONFIG = {
-  CHAIN_ID: '0xa2c4',
-  RPC_URL: 'https://studio.genlayer.com',
-  CONTRACT: '0x4F5F132ba540f1C685B0188D59990302903aE186',
-  ROOM_SIZE: { min: 2, max: 8 },
-  DEBATE_DURATION: 90,
-  VOTE_DURATION: 30,
-  TOTAL_ROUNDS: 5,
+// ============================================================
+// CONFIG - Replace Firebase config with your own!
+// ============================================================
+// const CONFIG = {
+//   FIREBASE: {
+//     apiKey: "AIzaSyDemo-Replace-With-Your-Key",
+//     authDomain: "consensus-chronicle.firebaseapp.com",
+//     databaseURL: "https://consensus-chronicle-default-rtdb.firebaseio.com",
+//     projectId: "consensus-chronicle"
+//   },
+  // Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBX4tOb30jWKK6aBUsqERQaOAF4CxCfMmQ",
+  authDomain: "consensus-chronicle.firebaseapp.com",
+  databaseURL: "https://consensus-chronicle-default-rtdb.firebaseio.com",
+  projectId: "consensus-chronicle",
+  storageBucket: "consensus-chronicle.firebasestorage.app",
+  messagingSenderId: "175835565956",
+  appId: "1:175835565956:web:80e59789fade3d439757d1",
+  measurementId: "G-SDWW95SHCG"
 };
 
-// GenLayer Calldata编码
-function encodeCalldata(method, args = []) {
-  const data = msgpack.encode({ method, args });
-  return '0x' + Array.from(new Uint8Array(data)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+  GENLAYER: {
+    chainId: '0xa2c4',
+    rpcUrl: 'https://studio-rpc.genlayer.com',
+    contract: '0x4F5F132ba540f1C685B0188D59990302903aE186'
+  },
+  GAME: { minPlayers: 2, maxPlayers: 8, debateDuration: 90, voteDuration: 30, totalRounds: 5 }
+};
 
-function decodeCalldata(hex) {
-  if (!hex || hex === '0x' || hex.length < 4) return null;
-  try {
-    const bytes = new Uint8Array(hex.slice(2).match(/.{1,2}/g).map(b => parseInt(b, 16)));
-    return msgpack.decode(bytes);
-  } catch (e) { return null; }
-}
-
-async function glRead(method, args = []) {
-  const data = encodeCalldata(method, args);
-  console.log(`[GL READ] ${method}`, args);
-  const res = await fetch(CONFIG.RPC_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', method: 'gen_call', id: Date.now(),
-      params: [{ Type: 'read', Data: data, from: state.address || '0x0000000000000000000000000000000000000000', to: CONFIG.CONTRACT, gas: '0x7A120', value: '0x0' }]
-    })
-  });
-  const json = await res.json();
-  console.log(`[GL READ RESULT]`, json);
-  if (json.error) throw new Error(json.error.message);
-  return decodeCalldata(json.result);
-}
-
-async function glWrite(method, args = []) {
-  const data = encodeCalldata(method, args);
-  console.log(`[GL WRITE] ${method}`, args);
-  const txHash = await window.ethereum.request({
-    method: 'eth_sendTransaction',
-    params: [{ from: state.address, to: CONFIG.CONTRACT, data, gas: '0x7A120', value: '0x0' }]
-  });
-  console.log(`[GL TX]`, txHash);
-  return txHash;
-}
-
-async function glWaitTx(txHash, timeout = 60) {
-  for (let i = 0; i < timeout; i++) {
-    await new Promise(r => setTimeout(r, 1000));
-    try {
-      const res = await fetch(CONFIG.RPC_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', method: 'gen_getTransactionReceipt', params: [{ txId: txHash }], id: Date.now() })
-      });
-      const json = await res.json();
-      if (json.result && json.result.status >= 5) return json.result;
-    } catch (e) {}
-  }
-  return null;
-}
-
+// ============================================================
+// STORY DATA
+// ============================================================
 const STORY_ARCS = {
   fantasy: { name: '奇幻冒险', icon: '🏰', opening: '古老的预言终于应验——沉睡千年的黑龙苏醒了。王国危在旦夕，国王紧急召集了各地英雄商议对策...', rounds: [
     { context: '黑龙的威胁迫在眉睫，王国必须做出第一个关键决定。', a: { text: '立即集结军队，主动出击龙巢。', tag: '先发制人', consequence: '军队向龙巢进发，损失惨重...' }, b: { text: '派遣使者寻求精灵族的帮助。', tag: '寻求联盟', consequence: '使者联系到精灵族，但条件苛刻...' }},
@@ -339,318 +166,179 @@ const STORY_ARCS = {
 };
 
 const AVATARS = ['🎮', '⚔️', '🛡️', '🔮', '📚', '🎭', '🎪', '🎯', '🏹', '⚡', '🌟', '🔥'];
-const AI_PLAYERS = [
-  { id: 'ai_1', name: '智者·艾丝', avatar: '🧙‍♀️', isAI: true, style: 'analytical' },
-  { id: 'ai_2', name: '勇者·凯恩', avatar: '⚔️', isAI: true, style: 'bold' },
-  { id: 'ai_3', name: '学者·诺亚', avatar: '📚', isAI: true, style: 'cautious' },
-  { id: 'ai_4', name: '商人·马可', avatar: '💰', isAI: true, style: 'pragmatic' },
-  { id: 'ai_5', name: '诗人·月华', avatar: '🎭', isAI: true, style: 'romantic' },
-];
 
-const state = { address: null, balance: '0', connected: false };
-const player = { name: '', avatar: '🎮', registered: false };
-const room = { id: null, theme: null, host: null, players: [] };
-const game = { round: 0, phase: 'waiting', timer: 0, story: [], path: [], votes: {}, myVote: null, scores: {}, messages: [], options: { a: null, b: null } };
-let timerInterval = null;
+// ============================================================
+// STATE
+// ============================================================
+const state = { firebaseReady: false, db: null, playerId: null, playerName: '', playerAvatar: '🎮', walletAddress: null, walletConnected: false, currentRoomId: null, isHost: false, gameActive: false };
+let roomListListener = null, currentRoomListener = null, gameListener = null;
 
+// ============================================================
+// UTILS
+// ============================================================
 const $ = id => document.getElementById(id);
 const show = id => $(id)?.classList.remove('hidden');
 const hide = id => $(id)?.classList.add('hidden');
-
-function toast(msg, type = 'info') {
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.textContent = msg;
-  $('toastContainer').appendChild(t);
-  setTimeout(() => t.remove(), 4000);
-}
-
+function toast(msg, type = 'info') { const t = document.createElement('div'); t.className = `toast ${type}`; t.textContent = msg; $('toastContainer').appendChild(t); setTimeout(() => t.remove(), 4000); }
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 9); }
 function formatTime(s) { return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`; }
 
-async function connectWallet() {
-  if (!window.ethereum) { toast('请安装MetaMask钱包', 'error'); return; }
+// ============================================================
+// FIREBASE
+// ============================================================
+function initFirebase() {
   try {
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    if (!accounts.length) throw new Error('未获取到账户');
-    state.address = accounts[0];
-    try {
-      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CONFIG.CHAIN_ID }] });
-    } catch (e) {
-      if (e.code === 4902) {
-        await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: CONFIG.CHAIN_ID, chainName: 'GenLayer Studio', rpcUrls: [CONFIG.RPC_URL], nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 } }] });
-      }
-    }
-    const balanceHex = await window.ethereum.request({ method: 'eth_getBalance', params: [state.address, 'latest'] });
-    state.balance = (parseInt(balanceHex, 16) / 1e18).toFixed(4);
-    state.connected = true;
-    $('balanceDisplay').textContent = state.balance + ' GEN';
-    $('addressDisplay').textContent = state.address.slice(0, 6) + '...' + state.address.slice(-4);
-    show('disconnectBtn');
-    hide('connectSection');
-    toast('钱包连接成功！', 'success');
-    await checkPlayerStatus();
-  } catch (err) {
-    console.error('连接失败:', err);
-    toast('连接失败: ' + (err.message || '请重试'), 'error');
-  }
+    if (firebase.apps.length === 0) firebase.initializeApp(CONFIG.FIREBASE);
+    state.db = firebase.database();
+    state.firebaseReady = true;
+    $('firebaseStatus').classList.add('connected');
+    toast('Firebase 连接成功！', 'success');
+    listenToRooms();
+  } catch (e) { console.error('Firebase init error:', e); toast('Firebase 连接失败', 'error'); }
 }
 
-function disconnect() {
-  state.address = null; state.connected = false; player.name = ''; player.registered = false;
-  hide('disconnectBtn'); hide('playerCard'); hide('themeSection'); hide('registerForm'); show('connectSection');
-  $('addressDisplay').textContent = ''; $('balanceDisplay').textContent = '0.0000 GEN';
-  toast('已断开连接', 'info');
-}
-
-async function checkPlayerStatus() {
-  try {
-    const result = await glRead('get_player', [state.address]);
-    if (result && result.name) {
-      player.name = result.name; player.avatar = result.avatar || '🎮'; player.registered = true;
-      showPlayerCard(); showThemeSection(); loadRooms(); return;
-    }
-  } catch (e) { console.warn('检查玩家状态失败:', e); }
-  show('registerForm'); initAvatarGrid();
-}
-
+// ============================================================
+// PLAYER
+// ============================================================
 function initAvatarGrid() {
-  $('avatarGrid').innerHTML = AVATARS.map((a, i) => `<div class="avatar-option ${i === 0 ? 'selected' : ''}" onclick="selectAvatar(this, '${a}')">${a}</div>`).join('');
-  player.avatar = AVATARS[0];
+  $('avatarGrid').innerHTML = AVATARS.map((a, i) => `<div class="avatar-option ${i === 0 ? 'selected' : ''}" onclick="selectAvatar(this,'${a}')">${a}</div>`).join('');
+  state.playerAvatar = AVATARS[0];
+}
+function selectAvatar(el, avatar) { document.querySelectorAll('.avatar-option').forEach(e => e.classList.remove('selected')); el.classList.add('selected'); state.playerAvatar = avatar; }
+function confirmPlayer() {
+  const name = $('playerNameInput').value.trim();
+  if (!name) { toast('请输入你的名字！', 'error'); return; }
+  state.playerName = name; state.playerId = generateId();
+  localStorage.setItem('consensusPlayer', JSON.stringify({ id: state.playerId, name: state.playerName, avatar: state.playerAvatar }));
+  $('myAvatar').textContent = state.playerAvatar; $('myName').textContent = state.playerName;
+  hide('setupSection'); show('mainMenu'); show('connectWalletBtn'); initThemeGrid(); toast(`欢迎，${name}！`, 'success');
+}
+function loadSavedPlayer() {
+  const saved = localStorage.getItem('consensusPlayer');
+  if (saved) { const p = JSON.parse(saved); state.playerId = p.id; state.playerName = p.name; state.playerAvatar = p.avatar; $('myAvatar').textContent = state.playerAvatar; $('myName').textContent = state.playerName; hide('setupSection'); show('mainMenu'); show('connectWalletBtn'); initThemeGrid(); return true; }
+  return false;
 }
 
-function selectAvatar(el, avatar) {
-  document.querySelectorAll('.avatar-option').forEach(e => e.classList.remove('selected'));
-  el.classList.add('selected'); player.avatar = avatar;
-}
-
-async function registerPlayer() {
-  const name = $('registerName').value.trim();
-  if (!name) { toast('请输入名字！', 'error'); return; }
-  const btn = document.querySelector('#registerForm button');
-  btn.disabled = true; btn.textContent = '请确认交易...';
-  try {
-    toast('请在MetaMask中确认交易...', 'info');
-    const txHash = await glWrite('register_player', [name, player.avatar]);
-    toast('交易已提交，等待确认...', 'info'); btn.textContent = '等待确认...';
-    await glWaitTx(txHash);
-    player.name = name; player.registered = true;
-    hide('registerForm'); showPlayerCard(); showThemeSection(); loadRooms();
-    toast('注册成功！', 'success');
-  } catch (err) {
-    toast(err.code === 4001 ? '用户取消了交易' : '注册失败: ' + err.message, 'error');
-  } finally { btn.disabled = false; btn.textContent = '确认注册'; }
-}
-
-function showPlayerCard() {
-  $('playerAvatar').textContent = player.avatar; $('playerName').textContent = player.name;
-  $('playerBalance').textContent = state.balance + ' GEN'; show('playerCard');
-}
-
-function showThemeSection() {
-  $('themeGrid').innerHTML = Object.entries(STORY_ARCS).map(([key, arc]) => `<div class="theme-card" onclick="createRoom('${key}')"><span class="icon">${arc.icon}</span><span class="name">${arc.name}</span><span class="desc">5轮史诗故事</span></div>`).join('');
-  show('themeSection');
-}
-
-async function loadRooms() {
+// ============================================================
+// ROOMS
+// ============================================================
+function initThemeGrid() { $('themeGrid').innerHTML = Object.entries(STORY_ARCS).map(([k, a]) => `<div class="theme-card" onclick="createRoom('${k}')"><span class="icon">${a.icon}</span><span class="name">${a.name}</span><span class="desc">5轮史诗故事</span></div>`).join(''); }
+function listenToRooms() { if (!state.firebaseReady) return; if (roomListListener) state.db.ref('rooms').off('value', roomListListener); roomListListener = state.db.ref('rooms').on('value', snap => renderRoomList(snap.val() || {})); }
+function refreshRooms() { if (!state.firebaseReady) { toast('Firebase 未连接', 'error'); return; } toast('刷新中...', 'info'); }
+function renderRoomList(rooms) {
   const list = $('roomList');
-  list.innerHTML = '<div class="no-rooms"><span class="loading"></span> 加载中...</div>';
-  try {
-    const result = await glRead('list_rooms', []);
-    const rooms = Array.isArray(result) ? result : [];
-    if (!rooms.length) { list.innerHTML = '<div class="no-rooms">暂无房间，创建一个吧！</div>'; return; }
-    list.innerHTML = rooms.map(r => `<div class="room-item" onclick="joinRoom(${r.id})"><span class="theme-icon">${STORY_ARCS[r.theme]?.icon || '🎮'}</span><div class="info"><div class="theme-name">${STORY_ARCS[r.theme]?.name || r.theme}</div><div class="host">房主: ${r.host_name || r.host?.slice(0,8)}</div></div><span class="players">${r.player_count || 1}/8</span><button class="btn btn-primary" style="padding: 0.4rem 1rem;">加入</button></div>`).join('');
-  } catch (err) { list.innerHTML = '<div class="no-rooms">暂无房间，创建一个吧！</div>'; }
+  const available = Object.entries(rooms).filter(([id, r]) => r.status === 'waiting' && Object.keys(r.players || {}).length < CONFIG.GAME.maxPlayers);
+  if (!available.length) { list.innerHTML = '<div class="no-rooms">暂无房间，创建一个吧！</div>'; return; }
+  list.innerHTML = available.map(([id, r]) => { const arc = STORY_ARCS[r.theme]; const cnt = Object.keys(r.players || {}).length; return `<div class="room-item" onclick="joinRoom('${id}')"><span class="theme-icon">${arc?.icon || '🎮'}</span><div class="info"><div class="theme-name">${arc?.name || r.theme}</div><div class="host">房主: ${r.hostName || '未知'}</div></div><span class="players">${cnt}/${CONFIG.GAME.maxPlayers}</span><button class="btn btn-primary btn-small">加入</button></div>`; }).join('');
 }
-
 async function createRoom(theme) {
-  try {
-    toast('请确认交易创建房间...', 'info');
-    const txHash = await glWrite('create_room', [theme]);
-    toast('等待确认...', 'info'); await glWaitTx(txHash);
-  } catch (err) { if (err.code === 4001) { toast('用户取消了交易', 'error'); return; } }
-  room.id = Date.now(); room.theme = theme; room.host = state.address;
-  room.players = [{ id: state.address, name: player.name, avatar: player.avatar, isHost: true }];
-  toast('房间创建成功！', 'success'); showRoomPage(); setTimeout(addAIPlayers, 1000);
+  if (!state.firebaseReady) { toast('Firebase 未连接', 'error'); return; }
+  const roomId = generateId();
+  const roomData = { id: roomId, theme, hostId: state.playerId, hostName: state.playerName, status: 'waiting', createdAt: firebase.database.ServerValue.TIMESTAMP, players: { [state.playerId]: { id: state.playerId, name: state.playerName, avatar: state.playerAvatar, isHost: true, joinedAt: firebase.database.ServerValue.TIMESTAMP } } };
+  try { await state.db.ref(`rooms/${roomId}`).set(roomData); state.currentRoomId = roomId; state.isHost = true; toast('房间创建成功！', 'success'); showRoomPage(); listenToCurrentRoom(); } catch (e) { console.error('Create room error:', e); toast('创建房间失败', 'error'); }
 }
-
 async function joinRoom(roomId) {
-  try { await glWrite('join_room', [roomId]); } catch (err) {}
-  room.id = roomId; room.theme = 'fantasy';
-  room.players = [{ id: state.address, name: player.name, avatar: player.avatar }];
-  toast('加入成功！', 'success'); showRoomPage(); setTimeout(addAIPlayers, 500);
+  if (!state.firebaseReady) { toast('Firebase 未连接', 'error'); return; }
+  try { await state.db.ref(`rooms/${roomId}/players/${state.playerId}`).set({ id: state.playerId, name: state.playerName, avatar: state.playerAvatar, isHost: false, joinedAt: firebase.database.ServerValue.TIMESTAMP }); state.currentRoomId = roomId; state.isHost = false; toast('加入成功！', 'success'); showRoomPage(); listenToCurrentRoom(); } catch (e) { console.error('Join room error:', e); toast('加入房间失败', 'error'); }
 }
-
-function addAIPlayers() {
-  const shuffled = [...AI_PLAYERS].sort(() => Math.random() - 0.5);
-  shuffled.slice(0, Math.floor(Math.random() * 2) + 2).forEach((ai, i) => {
-    setTimeout(() => {
-      if (room.players.length < CONFIG.ROOM_SIZE.max) {
-        room.players.push(ai); updateRoomUI(); addSystemMessage(`${ai.avatar} ${ai.name} 加入了房间`);
-      }
-    }, (i + 1) * 800);
-  });
+function listenToCurrentRoom() {
+  if (!state.currentRoomId || !state.firebaseReady) return;
+  if (currentRoomListener) state.db.ref(`rooms/${state.currentRoomId}`).off('value', currentRoomListener);
+  currentRoomListener = state.db.ref(`rooms/${state.currentRoomId}`).on('value', snap => { const room = snap.val(); if (!room) { toast('房间已关闭', 'info'); goToHome(); return; } if (room.status === 'playing' && !state.gameActive) { startGameView(room); return; } updateRoomUI(room); });
 }
-
-function showRoomPage() { hide('homePage'); show('roomPage'); updateRoomUI(); }
-
-function updateRoomUI() {
-  const arc = STORY_ARCS[room.theme];
-  $('roomThemeIcon').textContent = arc?.icon || '🎮';
-  $('roomThemeName').textContent = arc?.name || room.theme;
-  $('roomId').textContent = '#' + String(room.id).slice(-6);
-  $('playerCount').textContent = room.players.length;
-  const grid = $('playerGrid'); const slots = [];
-  room.players.forEach(p => {
-    const isHost = p.id === room.host || p.isHost;
-    slots.push(`<div class="player-slot ${isHost ? 'host' : ''} ${p.isAI ? 'ai' : ''}"><span class="avatar">${p.avatar}</span><span class="name">${p.name}</span>${isHost ? '<span class="badge badge-host">房主</span>' : ''}${p.isAI ? '<span class="badge badge-ai">AI</span>' : ''}</div>`);
-  });
-  for (let i = room.players.length; i < CONFIG.ROOM_SIZE.max; i++) slots.push(`<div class="player-slot empty-slot"><span class="avatar">?</span><span class="name">等待中...</span></div>`);
+function showRoomPage() { hide('homePage'); show('roomPage'); }
+function updateRoomUI(room) {
+  const arc = STORY_ARCS[room.theme]; $('roomThemeIcon').textContent = arc?.icon || '🎮'; $('roomThemeName').textContent = arc?.name || room.theme; $('roomIdDisplay').textContent = '#' + room.id.slice(-6);
+  const players = Object.values(room.players || {}); $('playerCount').textContent = players.length;
+  const grid = $('playerGrid'); const slots = players.map(p => { const isMe = p.id === state.playerId; const isHost = p.id === room.hostId; return `<div class="player-slot ${isHost ? 'host' : ''} ${isMe ? 'me' : ''}"><span class="avatar">${p.avatar}</span><span class="name">${p.name}</span>${isHost ? '<span class="badge badge-host">房主</span>' : ''}${isMe && !isHost ? '<span class="badge badge-me">我</span>' : ''}</div>`; });
+  for (let i = players.length; i < CONFIG.GAME.maxPlayers; i++) slots.push(`<div class="player-slot empty-slot"><span class="avatar">?</span><span class="name">等待中...</span></div>`);
   grid.innerHTML = slots.join('');
-  const isHost = room.host === state.address || room.players[0]?.id === state.address;
-  const canStart = room.players.length >= CONFIG.ROOM_SIZE.min;
-  $('startGameBtn').style.display = isHost ? 'block' : 'none';
-  $('startGameBtn').disabled = !canStart;
-  $('waitingMsg').textContent = isHost ? (canStart ? '' : `等待更多玩家 (${room.players.length}/${CONFIG.ROOM_SIZE.min})`) : '等待房主开始游戏...';
+  const canStart = players.length >= CONFIG.GAME.minPlayers;
+  if (room.hostId === state.playerId) { show('startGameBtn'); $('startGameBtn').disabled = !canStart; $('startGameBtn').textContent = canStart ? '🎮 开始游戏' : `等待玩家 (${players.length}/${CONFIG.GAME.minPlayers})`; $('waitingMsg').textContent = ''; } else { hide('startGameBtn'); $('waitingMsg').textContent = '等待房主开始游戏...'; }
 }
-
-function leaveRoom() { hide('roomPage'); show('homePage'); room.id = null; room.players = []; loadRooms(); }
-
-function startGame() {
-  if (room.players.length < CONFIG.ROOM_SIZE.min) { toast(`至少需要 ${CONFIG.ROOM_SIZE.min} 名玩家`, 'error'); return; }
-  game.round = 0; game.phase = 'waiting'; game.story = []; game.path = []; game.votes = {}; game.myVote = null; game.messages = []; game.scores = {};
-  room.players.forEach(p => { game.scores[p.id] = { influence: 0, debates: 0, wins: 0 }; });
-  const arc = STORY_ARCS[room.theme];
-  game.story.push({ text: arc.opening, type: 'opening', round: 0 });
-  hide('homePage'); hide('roomPage'); show('gameView');
-  updateGameUI(); addSystemMessage(`📖 ${arc.name}开始了！`);
-  setTimeout(() => startRound(1), 2000);
+async function leaveRoom() {
+  if (!state.currentRoomId || !state.firebaseReady) { goToHome(); return; }
+  try { await state.db.ref(`rooms/${state.currentRoomId}/players/${state.playerId}`).remove(); if (state.isHost) { const snap = await state.db.ref(`rooms/${state.currentRoomId}/players`).once('value'); const remaining = snap.val(); if (!remaining || !Object.keys(remaining).length) { await state.db.ref(`rooms/${state.currentRoomId}`).remove(); } else { const newHostId = Object.keys(remaining)[0]; await state.db.ref(`rooms/${state.currentRoomId}/hostId`).set(newHostId); await state.db.ref(`rooms/${state.currentRoomId}/players/${newHostId}/isHost`).set(true); } } } catch (e) { console.error('Leave room error:', e); }
+  if (currentRoomListener) { state.db.ref(`rooms/${state.currentRoomId}`).off('value', currentRoomListener); currentRoomListener = null; }
+  state.currentRoomId = null; state.isHost = false; goToHome();
 }
+function goToHome() { hide('roomPage'); hide('gameView'); show('homePage'); state.gameActive = false; }
 
-function startRound(r) {
-  if (r > CONFIG.TOTAL_ROUNDS) { endGame(); return; }
-  game.round = r; game.phase = 'debate'; game.votes = {}; game.myVote = null;
-  const arc = STORY_ARCS[room.theme]; const roundData = arc.rounds[r - 1];
-  game.story.push({ text: roundData.context, type: 'context', round: r });
-  game.options = { a: roundData.a, b: roundData.b };
-  addSystemMessage(`📖 第 ${r}/${CONFIG.TOTAL_ROUNDS} 轮 - 辩论阶段开始`);
-  updateGameUI(); startTimer(CONFIG.DEBATE_DURATION, () => startVoting());
-  simulateAIDebate();
+// ============================================================
+// GAME
+// ============================================================
+async function startGame() {
+  if (!state.isHost || !state.currentRoomId) return;
+  const snap = await state.db.ref(`rooms/${state.currentRoomId}/players`).once('value'); const players = snap.val() || {};
+  if (Object.keys(players).length < CONFIG.GAME.minPlayers) { toast('玩家不足', 'error'); return; }
+  const roomSnap = await state.db.ref(`rooms/${state.currentRoomId}`).once('value'); const room = roomSnap.val(); const arc = STORY_ARCS[room.theme];
+  const gameData = { round: 1, phase: 'debate', story: [{ text: arc.opening, type: 'opening', round: 0 }], path: [], votes: {}, messages: [], scores: {}, timerEnd: Date.now() + CONFIG.GAME.debateDuration * 1000, options: arc.rounds[0] };
+  Object.keys(players).forEach(pid => { gameData.scores[pid] = { influence: 0, debates: 0, wins: 0 }; });
+  try { await state.db.ref(`rooms/${state.currentRoomId}/game`).set(gameData); await state.db.ref(`rooms/${state.currentRoomId}/status`).set('playing'); } catch (e) { console.error('Start game error:', e); toast('启动游戏失败', 'error'); }
 }
-
-function startVoting() {
-  game.phase = 'vote'; game.timer = CONFIG.VOTE_DURATION;
-  addSystemMessage('🗳️ 投票阶段开始！请选择你支持的选项'); updateGameUI();
-  room.players.filter(p => p.isAI).forEach((ai, i) => {
-    setTimeout(() => { game.votes[ai.id] = Math.random() > 0.5 ? 'A' : 'B'; updateGameUI(); }, (i + 1) * 2000 + Math.random() * 3000);
-  });
-  startTimer(CONFIG.VOTE_DURATION, () => calculateResult());
-}
-
-function calculateResult() {
-  game.phase = 'result'; clearInterval(timerInterval);
-  const voteCount = { A: 0, B: 0 }; Object.values(game.votes).forEach(v => { if (v) voteCount[v]++; });
-  const total = voteCount.A + voteCount.B;
-  const winner = total === 0 ? (Math.random() > 0.5 ? 'A' : 'B') : (voteCount.A >= voteCount.B ? 'A' : 'B');
-  Object.entries(game.votes).forEach(([id, v]) => { if (v === winner && game.scores[id]) { game.scores[id].influence += 30; game.scores[id].wins++; } });
-  game.path.push(winner);
-  const opt = winner === 'A' ? game.options.a : game.options.b;
-  let consequence = opt.consequence || opt.ending || '';
-  game.story.push({ text: `【众人选择】${opt.text}`, type: 'choice', round: game.round, winner });
-  game.story.push({ text: consequence, type: 'consequence', round: game.round });
-  addSystemMessage(`📜 选项 ${winner} 获胜！(${voteCount[winner]}票 vs ${voteCount[winner === 'A' ? 'B' : 'A']}票)`);
-  updateGameUI();
-  if (game.round >= CONFIG.TOTAL_ROUNDS) setTimeout(endGame, 3000); else setTimeout(() => startRound(game.round + 1), 4000);
-}
-
-function endGame() { game.phase = 'ended'; clearInterval(timerInterval); addSystemMessage('🏆 编年史完成！'); updateGameUI(); }
-
-function startTimer(duration, onComplete) {
-  clearInterval(timerInterval); game.timer = duration; updateGameUI();
-  timerInterval = setInterval(() => { game.timer--; updateGameUI(); if (game.timer <= 0) { clearInterval(timerInterval); onComplete(); } }, 1000);
-}
-
-function simulateAIDebate() {
-  const debates = {
-    analytical: { A: ['从逻辑上分析，A的成功率更高'], B: ['仔细分析后，B的长期收益更大'] },
-    bold: { A: ['勇者不惧！A才是真正的英雄之选'], B: ['B才是真正的勇气！'] },
-    cautious: { A: ['虽然冒险，但A或许是必要的'], B: ['谨慎起见，B更安全'] },
-    pragmatic: { A: ['从利益角度，A回报更高'], B: ['B的风险更可控'] },
-    romantic: { A: ['A有种悲壮的美感'], B: ['B代表着希望与可能'] }
-  };
-  room.players.filter(p => p.isAI).forEach((ai, i) => {
-    setTimeout(() => {
-      const choice = Math.random() > 0.5 ? 'A' : 'B';
-      const text = debates[ai.style]?.[choice]?.[0] || '我支持' + choice;
-      addChatMessage(ai, text, choice);
-    }, (i + 1) * 3000 + Math.random() * 5000);
-  });
-}
-
-function addSystemMessage(text) { game.messages.push({ id: Date.now(), type: 'system', text }); if (game.messages.length > 30) game.messages.shift(); updateChatUI(); }
-function addChatMessage(sender, text, choice = null) { game.messages.push({ id: Date.now(), type: 'chat', sender, text, choice }); if (game.messages.length > 30) game.messages.shift(); updateChatUI(); }
-
-function submitDebate() {
-  const input = document.querySelector('#chatInput input');
-  if (!input || !input.value.trim() || game.phase !== 'debate') return;
-  const text = input.value.trim();
-  const choice = text.includes('A') ? 'A' : text.includes('B') ? 'B' : null;
-  addChatMessage({ name: player.name, avatar: player.avatar }, text, choice);
-  input.value = '';
-  if (game.scores[state.address]) game.scores[state.address].debates += 10;
-  updateGameUI();
-}
-
-function submitVote(choice) {
-  if (game.phase !== 'vote' || game.myVote) return;
-  game.myVote = choice; game.votes[state.address] = choice;
-  addSystemMessage(`你投票给了选项 ${choice}`); updateGameUI();
-}
-
-function setQuickMessage(text) { const input = document.querySelector('#chatInput input'); if (input) input.value = text; }
-
-function updateGameUI() {
+function startGameView(room) { state.gameActive = true; hide('homePage'); hide('roomPage'); show('gameView'); listenToGame(); }
+function listenToGame() { if (!state.currentRoomId || !state.firebaseReady) return; if (gameListener) state.db.ref(`rooms/${state.currentRoomId}`).off('value', gameListener); gameListener = state.db.ref(`rooms/${state.currentRoomId}`).on('value', snap => { const room = snap.val(); if (!room || !room.game) return; updateGameUI(room); if (room.game.timerEnd) updateTimer(room); }); }
+function updateGameUI(room) {
+  const game = room.game; const arc = STORY_ARCS[room.theme]; const players = room.players || {};
   $('roundNum').textContent = game.round;
   $('phaseBadge').textContent = game.phase === 'debate' ? '💬 辩论中' : game.phase === 'vote' ? '🗳️ 投票中' : game.phase === 'result' ? '📊 结算中' : '🏆 已结束';
-  const timerEl = $('timerDisplay');
-  timerEl.textContent = game.phase === 'ended' || game.phase === 'result' ? '--:--' : formatTime(game.timer);
-  timerEl.className = `timer ${game.timer <= 10 && game.phase !== 'ended' ? 'warning' : 'normal'}`;
   $('progressDots').innerHTML = [1,2,3,4,5].map(n => `<div class="progress-dot ${n < game.round ? 'done' : n === game.round ? 'current' : 'pending'}"></div>`).join('');
-  const myScore = game.scores[state.address] || { influence: 0, debates: 0 };
-  $('myScore').textContent = myScore.influence + myScore.debates;
-  const storyScroll = $('storyScroll');
-  storyScroll.innerHTML = `<h3>📜 ${STORY_ARCS[room.theme]?.name || ''} - 故事进程</h3>` + game.story.map(s => `<div class="story-item ${s.type}">${s.type === 'context' ? `<span class="round-badge">第${s.round}轮</span>` : ''}${s.type === 'choice' ? `${s.winner === 'A' ? '🅰️' : '🅱️'} ` : ''}${s.text}</div>`).join('');
-  storyScroll.scrollTop = storyScroll.scrollHeight;
-  const optionsPanel = $('optionsPanel');
-  if ((game.phase === 'debate' || game.phase === 'vote') && game.options.a) {
-    const votesA = Object.values(game.votes).filter(v => v === 'A').length;
-    const votesB = Object.values(game.votes).filter(v => v === 'B').length;
-    optionsPanel.innerHTML = `<h4>⚔️ 本轮抉择</h4><div class="options-grid"><div class="option-card option-a ${game.myVote === 'A' ? 'selected' : ''}" onclick="submitVote('A')"><div class="option-header"><span class="option-label label-a">选项 A</span><span class="option-tag">${game.options.a.tag}</span></div><p class="option-text">${game.options.a.text}</p>${game.phase === 'vote' ? `<div class="vote-count">${votesA} 票</div>` : ''}</div><div class="option-card option-b ${game.myVote === 'B' ? 'selected' : ''}" onclick="submitVote('B')"><div class="option-header"><span class="option-label label-b">选项 B</span><span class="option-tag">${game.options.b.tag}</span></div><p class="option-text">${game.options.b.text}</p>${game.phase === 'vote' ? `<div class="vote-count">${votesB} 票</div>` : ''}</div></div>`;
-  } else if (game.phase === 'ended') {
-    const rankings = Object.entries(game.scores).map(([id, score]) => ({ player: room.players.find(p => p.id === id), total: score.influence + score.debates })).sort((a, b) => b.total - a.total);
-    optionsPanel.innerHTML = `<div class="end-panel"><h2>🏆 编年史完成！</h2><div class="ranking-list">${rankings.map((r, i) => `<div class="ranking-item ${i === 0 ? 'first' : ''}"><span class="rank ${i < 3 ? 'top' : ''}">#${i + 1}</span><span class="avatar">${r.player?.avatar || '🎮'}</span><span class="name">${r.player?.name || '未知'}</span><span class="points">${r.total} pts</span></div>`).join('')}</div><button class="btn btn-primary" onclick="returnToLobby()">返回大厅</button></div>`;
-  } else { optionsPanel.innerHTML = ''; }
-  updateChatUI();
+  const myScore = game.scores?.[state.playerId] || { influence: 0, debates: 0 }; $('myScore').textContent = myScore.influence + myScore.debates;
+  const storyScroll = $('storyScroll'); storyScroll.innerHTML = `<h3>📜 ${arc.name} - 故事进程</h3>` + (game.story || []).map(s => `<div class="story-item ${s.type}">${s.type === 'context' ? `<span class="round-badge">第${s.round}轮</span>` : ''}${s.type === 'choice' ? `${s.winner === 'A' ? '🅰️' : '🅱️'} ` : ''}${s.text}</div>`).join(''); storyScroll.scrollTop = storyScroll.scrollHeight;
+  renderOptionsPanel(game, players); renderChatPanel(game, players);
 }
-
-function updateChatUI() {
-  $('chatPlayers').innerHTML = room.players.map(p => `<div class="chat-player ${game.votes[p.id] ? 'voted' : ''}"><span>${p.avatar}</span><span style="max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.name}</span>${game.votes[p.id] ? `<span class="vote-badge">${game.votes[p.id]}</span>` : ''}</div>`).join('');
-  const messagesEl = $('chatMessages');
-  messagesEl.innerHTML = game.messages.map(msg => msg.type === 'system' ? `<div class="chat-msg system">${msg.text}</div>` : `<div class="chat-msg player"><div class="sender">${msg.sender?.avatar || '🎮'} ${msg.sender?.name || '匿名'}${msg.choice ? `<span class="stance stance-${msg.choice.toLowerCase()}">支持${msg.choice}</span>` : ''}</div><div>${msg.text}</div></div>`).join('');
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-  const chatInput = $('chatInput');
-  if (game.phase === 'debate') {
-    chatInput.innerHTML = `<div class="chat-input-row"><input type="text" placeholder="输入你的观点..." onkeydown="if(event.key==='Enter')submitDebate()"><button class="btn btn-primary" onclick="submitDebate()">发送</button></div><div class="quick-btns"><button class="quick-btn btn-a" onclick="setQuickMessage('我支持选项A，因为')">🅰️ 支持A</button><button class="quick-btn btn-b" onclick="setQuickMessage('我支持选项B，因为')">🅱️ 支持B</button><button class="quick-btn" onclick="setQuickMessage('我认为我们应该考虑')">💭 观点</button></div>`;
-  } else if (game.phase === 'vote' && !game.myVote) {
-    chatInput.innerHTML = `<div class="vote-prompt"><p>⏰ 请在左侧选择你支持的选项！</p></div>`;
-  } else { chatInput.innerHTML = ''; }
+function renderOptionsPanel(game, players) {
+  const panel = $('optionsPanel');
+  if (game.phase === 'ended') { const rankings = Object.entries(game.scores || {}).map(([id, s]) => ({ player: players[id], total: (s.influence || 0) + (s.debates || 0) })).sort((a, b) => b.total - a.total); panel.innerHTML = `<div class="end-panel"><h2>🏆 编年史完成！</h2><div class="ranking-list">${rankings.map((r, i) => `<div class="ranking-item ${i === 0 ? 'first' : ''}"><span class="rank ${i < 3 ? 'top' : ''}">#${i + 1}</span><span class="avatar">${r.player?.avatar || '🎮'}</span><span class="name">${r.player?.name || '未知'}</span><span class="points">${r.total} pts</span></div>`).join('')}</div><div class="chain-record" id="chainRecord"><p>⏳ 正在记录到区块链...</p></div><button class="btn btn-primary" style="margin-top:1rem;" onclick="returnToLobby()">返回大厅</button></div>`; return; }
+  if (!game.options) { panel.innerHTML = ''; return; }
+  const votes = game.votes || {}; const myVote = votes[state.playerId]; const votesA = Object.entries(votes).filter(([id, v]) => v === 'A'); const votesB = Object.entries(votes).filter(([id, v]) => v === 'B');
+  panel.innerHTML = `<h4>⚔️ 本轮抉择</h4><div class="options-grid"><div class="option-card option-a ${myVote === 'A' ? 'selected' : ''}" onclick="submitVote('A')"><div class="option-header"><span class="option-label label-a">选项 A</span><span class="option-tag">${game.options.a?.tag || ''}</span></div><p class="option-text">${game.options.a?.text || ''}</p>${game.phase === 'vote' ? `<div class="vote-count">${votesA.length} 票</div><div class="voter-avatars">${votesA.map(([id]) => `<span class="voter-avatar">${players[id]?.avatar || '🎮'}</span>`).join('')}</div>` : ''}</div><div class="option-card option-b ${myVote === 'B' ? 'selected' : ''}" onclick="submitVote('B')"><div class="option-header"><span class="option-label label-b">选项 B</span><span class="option-tag">${game.options.b?.tag || ''}</span></div><p class="option-text">${game.options.b?.text || ''}</p>${game.phase === 'vote' ? `<div class="vote-count">${votesB.length} 票</div><div class="voter-avatars">${votesB.map(([id]) => `<span class="voter-avatar">${players[id]?.avatar || '🎮'}</span>`).join('')}</div>` : ''}</div></div>`;
 }
-
-function returnToLobby() { clearInterval(timerInterval); hide('gameView'); show('homePage'); room.id = null; room.players = []; game.round = 0; game.phase = 'waiting'; game.story = []; game.messages = []; loadRooms(); }
-
-if (window.ethereum) {
-  window.ethereum.on('accountsChanged', accounts => { if (accounts.length === 0) disconnect(); else location.reload(); });
-  window.ethereum.on('chainChanged', () => location.reload());
+function renderChatPanel(game, players) {
+  const votes = game.votes || {}; $('chatPlayers').innerHTML = Object.values(players).map(p => `<div class="chat-player ${votes[p.id] ? 'voted' : ''}"><span>${p.avatar}</span><span style="max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span>${votes[p.id] ? `<span class="vote-badge">${votes[p.id]}</span>` : ''}</div>`).join('');
+  const messagesEl = $('chatMessages'); messagesEl.innerHTML = (game.messages || []).map(msg => msg.type === 'system' ? `<div class="chat-msg system">${msg.text}</div>` : `<div class="chat-msg player"><div class="sender">${msg.avatar || '🎮'} ${msg.name || '匿名'}${msg.choice ? `<span class="stance stance-${msg.choice.toLowerCase()}">支持${msg.choice}</span>` : ''}</div><div>${msg.text}</div></div>`).join(''); messagesEl.scrollTop = messagesEl.scrollHeight;
+  const chatInput = $('chatInput'); if (game.phase === 'debate') { chatInput.innerHTML = `<div class="chat-input-row"><input type="text" id="chatInputField" placeholder="输入你的观点..." onkeydown="if(event.key==='Enter')sendMessage()"><button class="btn btn-primary btn-small" onclick="sendMessage()">发送</button></div><div class="quick-btns"><button class="quick-btn btn-a" onclick="setQuickMsg('我支持选项A，因为')">🅰️ 支持A</button><button class="quick-btn btn-b" onclick="setQuickMsg('我支持选项B，因为')">🅱️ 支持B</button></div>`; } else if (game.phase === 'vote' && !votes[state.playerId]) { chatInput.innerHTML = `<div class="vote-prompt"><p>⏰ 请点击左侧选项进行投票！</p></div>`; } else { chatInput.innerHTML = ''; }
 }
+function updateTimer(room) { const game = room.game; const now = Date.now(); const remaining = Math.max(0, Math.floor((game.timerEnd - now) / 1000)); const timerEl = $('timerDisplay'); timerEl.textContent = formatTime(remaining); timerEl.className = `timer ${remaining <= 10 ? 'warning' : 'normal'}`; if (remaining === 0 && state.isHost) handlePhaseEnd(room); }
+async function handlePhaseEnd(room) {
+  const game = room.game; const arc = STORY_ARCS[room.theme];
+  if (game.phase === 'debate') { await state.db.ref(`rooms/${state.currentRoomId}/game`).update({ phase: 'vote', timerEnd: Date.now() + CONFIG.GAME.voteDuration * 1000 }); await addSystemMessage('🗳️ 投票阶段开始！请选择你支持的选项'); }
+  else if (game.phase === 'vote') {
+    const votes = game.votes || {}; const voteCount = { A: 0, B: 0 }; Object.values(votes).forEach(v => { if (v) voteCount[v]++; }); const winner = voteCount.A >= voteCount.B ? 'A' : 'B'; const opt = winner === 'A' ? game.options.a : game.options.b; const consequence = opt.consequence || opt.ending || '';
+    const newScores = { ...game.scores }; Object.entries(votes).forEach(([id, v]) => { if (v === winner && newScores[id]) { newScores[id].influence = (newScores[id].influence || 0) + 30; newScores[id].wins = (newScores[id].wins || 0) + 1; } });
+    const newStory = [...(game.story || [])]; newStory.push({ text: `【众人选择】${opt.text}`, type: 'choice', round: game.round, winner }); newStory.push({ text: consequence, type: 'consequence', round: game.round }); const newPath = [...(game.path || []), winner];
+    if (game.round >= CONFIG.GAME.totalRounds) { await state.db.ref(`rooms/${state.currentRoomId}/game`).update({ phase: 'ended', story: newStory, path: newPath, scores: newScores, timerEnd: null }); await addSystemMessage('🏆 编年史完成！'); recordToGenLayer(room, newScores); }
+    else { const nextRound = game.round + 1; const nextOptions = arc.rounds[nextRound - 1]; newStory.push({ text: nextOptions.context, type: 'context', round: nextRound }); await state.db.ref(`rooms/${state.currentRoomId}/game`).update({ round: nextRound, phase: 'debate', story: newStory, path: newPath, scores: newScores, votes: {}, options: nextOptions, timerEnd: Date.now() + CONFIG.GAME.debateDuration * 1000 }); await addSystemMessage(`📖 第 ${nextRound}/${CONFIG.GAME.totalRounds} 轮 - 辩论阶段开始`); }
+  }
+}
+async function submitVote(choice) { if (!state.currentRoomId || !state.firebaseReady) return; const snap = await state.db.ref(`rooms/${state.currentRoomId}/game`).once('value'); const game = snap.val(); if (game.phase !== 'vote' || game.votes?.[state.playerId]) return; await state.db.ref(`rooms/${state.currentRoomId}/game/votes/${state.playerId}`).set(choice); await addSystemMessage(`${state.playerName} 已投票`); }
+async function sendMessage() { const input = $('chatInputField'); if (!input || !input.value.trim()) return; const text = input.value.trim(); const choice = text.includes('A') || text.includes('选项A') ? 'A' : text.includes('B') || text.includes('选项B') ? 'B' : null; await state.db.ref(`rooms/${state.currentRoomId}/game/messages`).push({ type: 'chat', playerId: state.playerId, name: state.playerName, avatar: state.playerAvatar, text, choice, time: Date.now() }); const currentScore = await state.db.ref(`rooms/${state.currentRoomId}/game/scores/${state.playerId}/debates`).once('value'); await state.db.ref(`rooms/${state.currentRoomId}/game/scores/${state.playerId}/debates`).set((currentScore.val() || 0) + 5); input.value = ''; }
+async function addSystemMessage(text) { await state.db.ref(`rooms/${state.currentRoomId}/game/messages`).push({ type: 'system', text, time: Date.now() }); }
+function setQuickMsg(text) { const input = $('chatInputField'); if (input) input.value = text; }
+async function returnToLobby() { if (state.isHost && state.currentRoomId) await state.db.ref(`rooms/${state.currentRoomId}`).remove(); if (gameListener) { state.db.ref(`rooms/${state.currentRoomId}`).off('value', gameListener); gameListener = null; } state.currentRoomId = null; state.isHost = false; state.gameActive = false; goToHome(); }
+
+// ============================================================
+// GENLAYER (End of game recording)
+// ============================================================
+async function connectWallet() {
+  if (!window.ethereum) { toast('请安装 MetaMask 钱包', 'error'); return; }
+  try { const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }); if (!accounts.length) throw new Error('No accounts'); state.walletAddress = accounts[0]; try { await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CONFIG.GENLAYER.chainId }] }); } catch (e) { if (e.code === 4902) { await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: CONFIG.GENLAYER.chainId, chainName: 'GenLayer Testnet', rpcUrls: [CONFIG.GENLAYER.rpcUrl], nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 } }] }); } } state.walletConnected = true; $('walletStatus').classList.add('connected'); $('walletAddress').textContent = state.walletAddress.slice(0, 6) + '...' + state.walletAddress.slice(-4); hide('connectWalletBtn'); toast('钱包连接成功！', 'success'); } catch (e) { console.error('Wallet connect error:', e); toast('连接钱包失败', 'error'); }
+}
+function encodeGenLayerCalldata(method, args = []) { const data = msgpack.encode({ method, args }); return '0x' + Array.from(new Uint8Array(data)).map(b => b.toString(16).padStart(2, '0')).join(''); }
+async function recordToGenLayer(room, scores) {
+  if (!state.walletConnected) { console.log('Wallet not connected, skipping chain record'); updateChainRecordUI(false, 'Wallet not connected'); return; }
+  try { const summary = { theme: room.theme, players: Object.keys(room.players).length, winner: Object.entries(scores).sort((a, b) => (b[1].influence + b[1].debates) - (a[1].influence + a[1].debates))[0], path: room.game.path, timestamp: Date.now() }; const calldata = encodeGenLayerCalldata('record_game', [room.id, room.theme, JSON.stringify(summary)]); const txHash = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: state.walletAddress, to: CONFIG.GENLAYER.contract, data: calldata, gas: '0x7A120', value: '0x0' }] }); console.log('GenLayer TX:', txHash); updateChainRecordUI(true, txHash); } catch (e) { console.error('GenLayer record error:', e); updateChainRecordUI(false, e.message); }
+}
+function updateChainRecordUI(success, info) { const el = $('chainRecord'); if (!el) return; if (success) { el.innerHTML = `<p>✅ 已记录到 GenLayer 区块链</p><p style="font-size:.8rem;margin-top:.5rem;">TX: <a href="https://studio.genlayer.com" target="_blank">${info.slice(0, 20)}...</a></p>`; } else { el.innerHTML = `<p style="color:#f87171;">⚠️ 区块链记录失败: ${info}</p>`; } }
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  initAvatarGrid(); loadSavedPlayer(); initFirebase();
+  if (window.ethereum) { window.ethereum.on('accountsChanged', accounts => { if (accounts.length === 0) { state.walletConnected = false; $('walletStatus').classList.remove('connected'); $('walletAddress').textContent = ''; show('connectWalletBtn'); } }); }
+  setInterval(() => { if (state.gameActive && state.currentRoomId) { state.db?.ref(`rooms/${state.currentRoomId}`).once('value').then(snap => { const room = snap.val(); if (room?.game?.timerEnd) updateTimer(room); }); } }, 1000);
+});
 </script>
 </body>
 </html>
