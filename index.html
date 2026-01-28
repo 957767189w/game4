@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>共识编年史 | Consensus Chronicle</title>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- 使用稳定 jsDelivr CDN -->
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
@@ -18,15 +19,15 @@
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
-    // ========== 配置 ==========
+
     const CONFIG = {
       ROOM_SIZE: { min: 2, max: 8 },
       DEBATE_DURATION: 90,
       VOTE_DURATION: 30,
       TOTAL_ROUNDS: 5,
-      ENTRY_FEE: 10000000000000000, // 0.01 GEN in wei
-      ROOM_TIMEOUT_AI: 60000, // 1分钟无人加入则AI填充
-      ROOM_TIMEOUT_CLOSE: 120000, // 2分钟未开始则关闭
+      ENTRY_FEE: 10000000000000000,
+      ROOM_TIMEOUT_AI: 60000,
+      ROOM_TIMEOUT_CLOSE: 120000,
       GENLAYER_API: 'https://studio.genlayer.com:8443/api',
       GENLAYER_CONTRACT: '0x4F5F132ba540f1C685B0188D59990302903aE186',
       FIREBASE: {
@@ -36,7 +37,8 @@
         projectId: "consensus-chronicle"
       }
     };
-    // ========== 故事系统 ==========
+
+    // ========== 完整故事系统 ==========
     const STORY_ARCS = {
       fantasy: {
         name: '奇幻冒险', icon: '🏰',
@@ -53,9 +55,10 @@
         name: '科幻未来', icon: '🚀',
         opening: '2157年，火星殖民地"新希望"收到了一段来自深空的神秘信号。科学家们破译后发现：这是一个警告——地球将在100天后被小行星撞击。然而，殖民地的资源只够救一半人...',
         rounds: [
-          { context: '消息公布后，殖民地陷入恐慌。领导层必须立即做出决定。', a: { text: '立即启动"方舟计划"，通过抽签决定谁能登上逃生飞船。', tag: '公平抽签·冷酷', consequence: '抽签结果公布，落选者开始绝望地抗议，安保部队被迫介入...' }, b: { text: '集中所有资源研究信号来源，也许那里有拯救所有人的答案。', tag: '追寻希望·冒险', consequence: '研究团队发现信号来自一个未知文明，他们似乎在邀请人类...' } },
+          { context: '消息公布后，殖民地陷入恐慌。领导层必须立即做出决定。', a: { text: '立即启动"方舟计划"，通过抽签决定谁能登上逃生飞船。', tag: '公平抽签·冷酷', consequence: '抽签结果公布， fall选者开始绝望地抗议，安保部队被迫介入...' }, b: { text: '集中所有资源研究信号来源，也许那里有拯救所有人的答案。', tag: '追寻希望·冒险', consequence: '研究团队发现信号来自一个未知文明，他们似乎在邀请人类...' } },
           { contextA: '抗议演变为暴动，部分落选者占领了飞船发射区。', contextB: '深入分析信号后，发现那个文明在邀请人类去一个遥远的星系，但旅程需要500年。', a: { text: '授权安保部队使用武力，确保方舟计划按时执行。', tag: '铁腕镇压·效率', consequenceFromA: '暴动被镇压，但许多人在冲突中丧生，幸存者心存怨恨...', consequenceFromB: '放弃与外星文明联系，专注于现有的逃生计划...' }, b: { text: '与抗议者谈判，尝试修改计划让更多人获得生存机会。', tag: '寻求共识·人道', consequenceFromA: '谈判取得进展，工程师提出可以超载飞船，但风险极大...', consequenceFromB: '决定派遣先锋队响应邀请，其余人进入冷冻睡眠等待...' } },
-          { contextAA: '飞船超载会导致成功率从95%降到60%，但能多救30%的人。', contextAB: '先锋队出发后失去毛泽东联系，剩余资源只够维持60天。', contextBA: '部分激进分子不接受谈判结果，密谋破坏飞船。', contextBB: '冷冻睡眠技术尚未完善，有30%的失败率。', a: { text: '接受超载方案，用60%的成功率换取更多人的希望。', tag: '冒险求全·赌博', consequence: '超载方案启动，所有人都在祈祷奇迹发生...' }, b: { text: '维持原计划，确保至少一半人能够确定存活。', tag: '稳妥求存·现实', consequence: '原计划继续执行，但社会的裂痕已无法弥合...' } },
+          { contextAA: '飞船超载会导致成功率从 
+95%降到60%，但能多救30%的人。', contextAB: '先锋队出发后失去联系，剩余资源只够维持60天。', contextBA: '部分激进分子不接受谈判结果，密谋破坏飞船。', contextBB: '冷冻睡眠技术尚未完善，有30%的失败率。', a: { text: '接受超载方案，用60%的成功率换取更多人的希望。', tag: '冒险求全·赌博', consequence: '超载方案启动，所有人都在祈祷奇迹发生...' }, b: { text: '维持原计划，确保至少一半人能够确定存活。', tag: '稳妥求存·现实', consequence: '原计划继续执行，但社会的裂痕已无法弥合...' } },
           { contextA: '飞船起飞前，AI系统检测到一个惊人的可能性：小行星的轨道可以被人为改变。', contextB: '发射准备完成时，先锋队突然传来消息：外星文明可以提供技术摧毁小行星，但需要人类放弃武器。', a: { text: '尝试改变小行星轨道，即使失败也值得一试。', tag: '逆天改命·英雄', consequence: '全殖民地的能源被集中用于这个大胆的计划...' }, b: { text: '按原计划撤离，不要把所有鸡蛋放在一个篮子里。', tag: '分散风险·谨慎', consequence: '飞船开始撤离，但留下的人没有放弃希望...' } },
           { contextA: '改变轨道的尝试消耗了80%的能源，小行星偏移了，但不够——它仍会擦过地球大气层，造成巨大灾难。', contextB: '外星文明的技术确实有效，但他们要求人类必须先销毁所有核武器作为"入会费"。', a: { text: '放手一搏，用剩余能源再推一次，要么全赢，要么全输。', tag: '背水一战·极限', ending: '奇迹发生了！小行星在最后一刻偏离了撞击轨道。人类用勇气和团结战胜了命运，这一天被永远铭记为"新希望日"。' }, b: { text: '接受部分损失，开始灾后重建计划，人类将浴火重生。', tag: '务实面对·重生', ending: '小行星擦过地球，造成了严重但非毁灭性的灾难。幸存的人类开始了艰难的重建，但他们知道，只要人类还在，希望就在。' } }
         ]
@@ -83,14 +86,16 @@
         ]
       }
     };
-    // ========== AI玩家 ==========
+
+    // ========== AI玩家及辩论生成 ==========
     const AI_PLAYERS = [
       { id: 'ai_1', name: '智者·艾丝', avatar: '🧙‍♀️', exp: 1200, isAI: true, style: 'analytical' },
       { id: 'ai_2', name: '勇者·凯恩', avatar: '⚔️', exp: 1100, isAI: true, style: 'bold' },
       { id: 'ai_3', name: '学者·诺亚', avatar: '📚', exp: 1300, isAI: true, style: 'cautious' },
-      { id: 'ai_4', name: '商人·马可', avatar: '💰', exp: 1150, isAI: true, style: 'pragmatic' },
+      { id: 'ai_4', name: '商人·马可', avatar: '💰', exp: 1150, is previously true, style: 'pragmatic' },
       { id: 'ai_5', name: '诗人·月华', avatar: '🎭', exp: 1050, isAI: true, style: 'romantic' },
     ];
+
     const generateAIDebate = (style) => {
       const debates = {
         analytical: { A: ['从逻辑上分析，选项A的成功率更高', '数据表明，果断行动往往效果更好'], B: ['仔细分析后，B的长期收益更大', '综合考量，B是更稳妥的方案'] },
@@ -103,7 +108,7 @@
       const options = debates[style]?.[choice] || debates.analytical[choice];
       return { text: options[Math.floor(Math.random() * options.length)], choice };
     };
-    // ========== 主组件 ==========
+
     function App() {
       const [db, setDb] = useState(null);
       const [walletAddress, setWalletAddress] = useState(null);
@@ -120,11 +125,10 @@
       const [myVote, setMyVote] = useState(null);
       const [timer, setTimer] = useState(0);
       const [leaderboard, setLeaderboard] = useState([]);
-      const [loading, setLoading] = useState(false);
       const timerRef = useRef(null);
       const messagesEndRef = useRef(null);
       const roomCheckRef = useRef(null);
-      // 初始化Firebase
+
       useEffect(() => {
         try {
           if (!firebase.apps.length) firebase.initializeApp(CONFIG.FIREBASE);
@@ -139,7 +143,7 @@
           if (roomCheckRef.current) clearInterval(roomCheckRef.current);
         };
       }, []);
-      // 监听房间列表 + 处理超时房间
+
       useEffect(() => {
         if (!db) return;
         const roomsRef = db.ref('rooms');
@@ -164,7 +168,7 @@
           }
         });
       }, [db]);
-      // 监听当前房间
+
       useEffect(() => {
         if (!db || !roomId) return;
         const roomRef = db.ref(`rooms/${roomId}`);
@@ -186,7 +190,7 @@
           const d = s.val();
           if (d) {
             setGameState(d);
-            if (d.messages) setMessages(Object.values(d.messages).sort((a, b) => a.timestamp - b.timestamp));
+           —he if (d.messages) setMessages(Object.values(d.messages).sort((a, b) => a.timestamp - b.timestamp));
             if (d.timerEnd && d.phase !== 'ended') setTimer(Math.max(0, Math.floor((d.timerEnd - Date.now()) / 1000)));
           }
         });
@@ -195,7 +199,7 @@
           gameRef.off();
         };
       }, [db, roomId]);
-      // 房间超时检查：1分钟无人加入则添加AI
+
       useEffect(() => {
         if (!db || !roomId || !roomData || roomData.status !== 'waiting') return;
         if (roomCheckRef.current) clearInterval(roomCheckRef.current);
@@ -219,7 +223,7 @@
         }, 5000);
         return () => { if (roomCheckRef.current) clearInterval(roomCheckRef.current); };
       }, [db, roomId, roomData, player.id]);
-      // 计时器同步
+
       useEffect(() => {
         if (!gameState?.timerEnd || gameState?.phase === 'ended') return;
         if (timerRef.current) clearInterval(timerRef.current);
@@ -230,8 +234,9 @@
         }, 1000);
         return () => { if (timerRef.current) clearInterval(timerRef.current); };
       }, [gameState?.timerEnd, gameState?.phase]);
+
       useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-      // ========== 钱包连接 ==========
+
       const connectWallet = async () => {
         if (!window.ethereum) { alert('请安装MetaMask钱包'); return null; }
         setWalletConnecting(true);
@@ -243,17 +248,16 @@
         } catch (err) { alert('钱包连接失败: ' + err.message); return null; }
         finally { setWalletConnecting(false); }
       };
-      // ========== GenLayer扣费（测试模式：跳过）==========
-      const payEntryFee = async (address) => {
-        console.log('【测试模式】跳过GenLayer扣费，直接成功');
-        return true; // 直接返回成功，不调用API，避免Failed to fetch
+
+      const payEntryFee = async () => {
+        console.log('【测试模式】跳过扣费');
+        return true;
       };
-      // ========== GenLayer记录游戏结果（测试模式：跳过）==========
+
       const recordGameToGenLayer = async (gameData) => {
-        console.log('【测试模式】跳过记录游戏结果到GenLayer', gameData);
-        // 如需恢复真实记录，请取消注释原fetch代码
+        console.log('【测试模式】跳过记录到GenLayer', gameData);
       };
-      // ========== 创建房间 ==========
+
       const createRoom = async (theme) => {
         if (!db || !player.name) return;
        
@@ -278,7 +282,7 @@
         setView('room');
         addMessage('system', `房间已创建，等待其他玩家加入...`);
       };
-      // ========== 加入房间 ==========
+
       const joinRoom = async (targetRoomId) => {
         if (!db || !player.name) return;
        
@@ -301,7 +305,7 @@
         setRoomId(targetRoomId);
         setView('room');
       };
-      // ========== 添加AI玩家 ==========
+
       const addAIPlayers = async () => {
         if (!db || !roomId) return;
         const currentPlayerIds = Object.keys(roomData?.players || {});
@@ -315,7 +319,7 @@
           addMessage('system', `${aiToAdd[i].avatar} ${aiToAdd[i].name} 加入了房间`);
         }
       };
-      // ========== 开始游戏 ==========
+
       const startGame = async () => {
         if (!db || !roomId || players.length < CONFIG.ROOM_SIZE.min) return;
        
@@ -341,6 +345,7 @@
         addMessage('system', `📖 ${arc.name}开始了！第 1/${CONFIG.TOTAL_ROUNDS} 轮 - 辩论阶段`);
         setTimeout(() => simulateAIDebate(), 3000);
       };
+
       const simulateAIDebate = () => {
         players.filter(p => p.isAI).forEach((ai, i) => {
           setTimeout(() => {
@@ -349,6 +354,7 @@
           }, (i + 1) * 3000 + Math.random() * 5000);
         });
       };
+
       const handlePhaseEnd = async () => {
         if (!db || !roomId || !gameState) return;
         if (gameState.phase === 'debate') {
@@ -364,6 +370,7 @@
           await calculateResult();
         }
       };
+
       const calculateResult = async () => {
         if (!db || !roomId || !gameState) return;
         const votes = gameState.votes || {};
@@ -425,7 +432,7 @@
           setTimeout(() => simulateAIDebate(), 3000);
         }
       };
-      // 故事辅助函数（保持不变）
+
       const getContext = (roundNum, path) => {
         const theme = roomData?.theme || 'fantasy';
         const roundData = STORY_ARCS[theme]?.rounds[roundNum - 1];
@@ -437,10 +444,12 @@
         }
         return roundData.context || '';
       };
+
       const getOption = (roundNum, choice) => {
         const roundData = STORY_ARCS[roomData?.theme || 'fantasy']?.rounds[roundNum - 1];
         return choice === 'A' ? roundData?.a : roundData?.b;
       };
+
       const getConsequence = (roundNum, choice, path) => {
         const roundData = STORY_ARCS[roomData?.theme || 'fantasy']?.rounds[roundNum - 1];
         if (!roundData) return '';
@@ -449,16 +458,18 @@
         if (roundNum === CONFIG.TOTAL_ROUNDS && option.ending) return option.ending;
         return option.consequence || '';
       };
+
       const getCurrentOptions = () => {
         if (!gameState || !roomData) return { a: null, b: null };
         const roundData = STORY_ARCS[roomData.theme || 'fantasy']?.rounds[(gameState.round || 1) - 1];
         return { a: roundData?.a, b: roundData?.b };
       };
-      // 消息函数（保持不变）
+
       const addMessage = async (type, text, sender = null, choice = null) => {
         if (!db || !roomId) return;
         await db.ref(`games/${roomId}/messages`).push().set({ type, text, sender, choice, timestamp: Date.now() });
       };
+
       const submitDebate = async () => {
         if (!debateInput.trim() || gameState?.phase !== 'debate') return;
         const choice = debateInput.includes('A') ? 'A' : debateInput.includes('B') ? 'B' : null;
@@ -466,43 +477,266 @@
         setDebateInput('');
         if (gameState?.scores?.[player.id]) await db.ref(`games/${roomId}/scores/${player.id}/debates`).set((gameState.scores[player.id].debates || 0) + 10);
       };
+
       const submitVote = async (choice) => {
         if (gameState?.phase !== 'vote' || myVote) return;
         setMyVote(choice);
         await db.ref(`games/${roomId}/votes/${player.id}`).set(choice);
       };
+
       const resetGame = () => {
         if (timerRef.current) clearInterval(timerRef.current);
         if (roomCheckRef.current) clearInterval(roomCheckRef.current);
         setRoomId(null); setRoomData(null); setGameState(null); setPlayers([]); setMessages([]); setMyVote(null); setView('home');
       };
+
       const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
       const shortAddress = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '';
-      // ========== 渲染部分保持不变 ==========
-      // （为了篇幅，这里省略渲染代码，与您提供的原代码完全相同）
-      // 您可以直接复制原渲染代码替换此处
+
+      // ========== 渲染: 首页 ==========
       if (view === 'home') {
         return (
           <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)', padding: '2rem', color: '#e8e8e8' }}>
-            {/* 原首页渲染代码保持不变 */}
-            {/* ...（您提供的原代码中的home部分）... */}
+            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+              <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <div style={{ fontSize: '4rem', marginBottom: '0.5rem' }}>📜</div>
+                <h1 style={{ fontSize: '2.5rem', fontWeight: 800, background: 'linear-gradient(135deg, #a78bfa, #f472b6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>共识编年史</h1>
+                <p style={{ color: '#8b8b9e', letterSpacing: '0.2em' }}>CONSENSUS CHRONICLE</p>
+              </div>
+             
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                {walletAddress ? (
+                  <span style={{ padding: '0.5rem 1rem', background: 'rgba(74,222,128,0.2)', borderRadius: '20px', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80' }}>🔗 {shortAddress(walletAddress)}</span>
+                ) : (
+                  <button onClick={connectWallet} disabled={walletConnecting} style={{ padding: '0.8rem 2rem', background: 'linear-gradient(135deg, #f472b6, #a78bfa)', border: 'none', borderRadius: '25px', color: '#fff', fontSize: '1rem', fontWeight: 600, cursor: 'pointer' }}>{walletConnecting ? '连接中...' : '🦊 连接MetaMask'}</button>
+                )}
+              </div>
+             
+              {!player.name ? (
+                <div style={{ maxWidth: '350px', margin: '0 auto' }}>
+                  <input type="text" placeholder="输入你的名字..." style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', background: 'rgba(255,255,255,0.05)', border: '2px solid rgba(167,139,250,0.3)', borderRadius: '12px', color: '#fff', outline: 'none' }} onKeyDown={(e) => e.key === 'Enter' && e.target.value.trim() && setPlayer(p => ({ ...p, name: e.target.value.trim() }))} />
+                  <p style={{ marginTop: '0.5rem', color: '#6b6b7e', fontSize: '0.9rem', textAlign: 'center' }}>按 Enter 确认</p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                    <span style={{ padding: '0.8rem 1.5rem', background: 'rgba(167,139,250,0.1)', borderRadius: '30px', border: '1px solid rgba(167,139,250,0.3)' }}>
+                      <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{player.avatar}</span>
+                      <span style={{ fontWeight: 600 }}>{player.name}</span>
+                      <span style={{ color: '#fbbf24', marginLeft: '1rem' }}>⭐ {player.exp}</span>
+                    </span>
+                  </div>
+                 
+                  <div style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '0.8rem', background: 'rgba(251,191,36,0.1)', borderRadius: '10px', border: '1px solid rgba(251,191,36,0.3)' }}>
+                    <p style={{ color: '#fbbf24' }}>⚡ 创建/加入房间需支付 0.01 GEN（测试模式已跳过）</p>
+                  </div>
+                 
+                  {availableRooms.length > 0 && (
+                    <div style={{ marginBottom: '2rem' }}>
+                      <h3 style={{ color: '#c4b5fd', marginBottom: '1rem' }}>🚪 可加入的房间</h3>
+                      {availableRooms.map(room => (
+                        <div key={room.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                          <div>
+                            <span style={{ fontSize: '1.3rem', marginRight: '0.5rem' }}>{STORY_ARCS[room.theme]?.icon}</span>
+                            <span>{STORY_ARCS[room.theme]?.name}</span>
+                            <span style={{ color: '#8b8b9e', marginLeft: '0.5rem' }}>({Object.keys(room.players || {}).length}/{CONFIG.ROOM_SIZE.max})</span>
+                            <span style={{ color: '#6b6b7e', marginLeft: '0.5rem', fontSize: '0.8rem' }}>{Math.floor(room.age / 1000)}秒前</span>
+                          </div>
+                          <button onClick={() => joinRoom(room.id)} style={{ padding: '0.5rem 1.5rem', background: 'linear-gradient(135deg, #a78bfa, #f472b6)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>加入</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                 
+                  <h3 style={{ color: '#c4b5fd', marginBottom: '1rem', textAlign: 'center' }}>选择主题创建房间</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                    {Object.entries(STORY_ARCS).map(([key, arc]) => (
+                      <button key={key} onClick={() => createRoom(key)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', cursor: 'pointer', opacity: 1 }}>
+                        <span style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{arc.icon}</span>
+                        <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#fff' }}>{arc.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                 
+                  <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '14px', padding: '1.5rem' }}>
+                    <h3 style={{ color: '#fbbf24', marginBottom: '1rem' }}>🏆 排行榜</h3>
+                    {leaderboard.length === 0 ? <p style={{ color: '#6b6b7e', textAlign: 'center' }}>暂无记录</p> : leaderboard.slice(0, 5).map((e, i) => (
+                      <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.6rem', background: i === 0 ? 'rgba(251,191,36,0.1)' : 'transparent', borderRadius: '8px', marginBottom: '0.3rem' }}>
+                        <span style={{ fontWeight: 700, color: i < 3 ? '#fbbf24' : '#6b6b7e', width: '1.5rem' }}>#{i + 1}</span>
+                        <span>{e.avatar}</span>
+                        <span style={{ flex: 1, color: '#fff' }}>{e.name}</span>
+                        <span style={{ color: '#a78bfa', fontWeight: 600 }}>{e.score}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         );
       }
+
+      // ========== 渲染: 房间 ==========
       if (view === 'room') {
-        // 原房间渲染代码保持不变
+        const roomAge = roomData ? Math.floor((Date.now() - roomData.createdAt) / 1000) : 0;
+       
+        return (
+          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)', padding: '2rem', color: '#e8e8e8' }}>
+            <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <button onClick={resetGame} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#a5a5b8', cursor: 'pointer' }}>← 返回</button>
+                <div><span style={{ fontSize: '1.3rem', marginRight: '0.5rem' }}>{STORY_ARCS[roomData?.theme]?.icon}</span><span style={{ fontWeight: 600 }}>{STORY_ARCS[roomData?.theme]?.name}</span></div>
+                <span style={{ fontSize: '0.8rem', color: '#6b6b7e' }}>{roomAge}秒</span>
+              </div>
+             
+              {roomAge > 60 && (
+                <div style={{ textAlign: 'center', marginBottom: '1rem', padding: '0.5rem', background: 'rgba(251,191,36,0.1)', borderRadius: '8px', color: '#fbbf24', fontSize: '0.9rem' }}>
+                  ⏰ 超过1分钟，AI玩家将自动加入
+                </div>
+              )}
+             
+              <h3 style={{ color: '#8b8b9e', marginBottom: '1rem' }}>玩家 ({players.length}/{CONFIG.ROOM_SIZE.max})</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+                {players.map(p => (
+                  <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem', background: p.id === player.id ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${p.id === player.id ? 'rgba(167,139,250,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '10px', position: 'relative' }}>
+                    <span style={{ fontSize: '2rem', marginBottom: '0.3rem' }}>{p.avatar}</span>
+                    <span style={{ fontSize: '0.85rem', textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                    {p.isAI && <span style={{ position: 'absolute', top: '0.3rem', left: '0.3rem', fontSize: '0.5rem', padding: '0.1rem 0.3rem', background: '#3b82f6', borderRadius: '3px' }}>AI</span>}
+                    {p.id === roomData?.host && <span style={{ position: 'absolute', top: '0.3rem', right: '0.3rem', fontSize: '0.5rem', padding: '0.1rem 0.3rem', background: '#fbbf24', color: '#000', borderRadius: '3px' }}>房主</span>}
+                  </div>
+                ))}
+              </div>
+             
+              {player.id === roomData?.host && (
+                <>
+                  <button onClick={startGame} disabled={players.length < CONFIG.ROOM_SIZE.min} style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', fontWeight: 600, border: 'none', borderRadius: '10px', cursor: players.length >= CONFIG.ROOM_SIZE.min ? 'pointer' : 'not-allowed', background: players.length >= CONFIG.ROOM_SIZE.min ? 'linear-gradient(135deg, #a78bfa, #f472b6)' : 'rgba(255,255,255,0.1)', color: players.length >= CONFIG.ROOM_SIZE.min ? '#fff' : '#6b6b7e', marginBottom: '1rem' }}>
+                    {players.length >= CONFIG.ROOM_SIZE.min ? '🎮 开始游戏' : `等待玩家 (${players.length}/${CONFIG.ROOM_SIZE.min})`}
+                  </button>
+                  <button onClick={addAIPlayers} style={{ width: '100%', padding: '0.8rem', fontSize: '0.95rem', border: '1px solid rgba(59,130,246,0.5)', borderRadius: '10px', background: 'transparent', color: '#3b82f6', cursor: 'pointer' }}>
+                    🤖 添加AI玩家
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        );
       }
-      // 其余渲染代码也保持不变
+
+      // ========== 渲染: 游戏 ==========
       const currentOptions = getCurrentOptions();
       const votes = gameState?.votes || {};
      
       return (
-        // 原游戏界面渲染代码保持不变
         <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)', display: 'flex', flexDirection: 'column', color: '#e8e8e8' }}>
-          {/* 原游戏界面代码 */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <div>
+              <div style={{ fontSize: '0.85rem', color: '#8b8b9e' }}>第 {gameState?.round || 1}/{CONFIG.TOTAL_ROUNDS} 轮</div>
+              <div style={{ fontWeight: 600 }}>{gameState?.phase === 'debate' && '💬 辩论中'}{gameState?.phase === 'vote' && '🗳️ 投票中'}{gameState?.phase === 'ended' && '🏆 已结束'}</div>
+            </div>
+            <div style={{ fontSize: '2rem', fontWeight: 700, fontFamily: 'monospace', color: timer <= 10 && gameState?.phase !== 'ended' ? '#f87171' : '#a78bfa' }}>{gameState?.phase === 'ended' ? '--:--' : formatTime(timer)}</div>
+            <div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem', color: '#8b8b9e' }}>积分</div><div style={{ fontSize: '1.3rem', fontWeight: 700, color: '#fbbf24' }}>{(gameState?.scores?.[player.id]?.influence || 0) + (gameState?.scores?.[player.id]?.debates || 0)}</div></div>
+          </div>
+          <div style={{ flex: 1, display: 'flex', gap: '1rem', padding: '1rem', overflow: 'hidden' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '1rem', overflowY: 'auto' }}>
+                <h3 style={{ color: '#c4b5fd', marginBottom: '1rem', fontSize: '0.95rem' }}>📜 {STORY_ARCS[roomData?.theme]?.name}</h3>
+                {(gameState?.story || []).map((s, i) => (
+                  <div key={i} style={{ padding: '0.5rem 0', borderBottom: i < (gameState?.story?.length || 0) - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                    {s.type === 'opening' && <p style={{ color: '#c4b5fd', fontStyle: 'italic', lineHeight: 1.6 }}>{s.text}</p>}
+                    {s.type === 'context' && <p style={{ color: '#fbbf24', lineHeight: 1.6 }}><span style={{ background: 'rgba(251,191,36,0.2)', padding: '0.15rem 0.4rem', borderRadius: '4px', marginRight: '0.4rem', fontSize: '0.8rem' }}>第{s.round}轮</span>{s.text}</p>}
+                    {s.type === 'choice' && <p style={{ color: '#4ade80', lineHeight: 1.6 }}>{s.winner === 'A' ? '🅰️' : '🅱️'} {s.text}</p>}
+                    {s.type === 'consequence' && <p style={{ color: '#a5a5b8', lineHeight: 1.6, paddingLeft: '1rem', borderLeft: '2px solid rgba(167,139,250,0.3)' }}>{s.text}</p>}
+                  </div>
+                ))}
+              </div>
+              {(gameState?.phase === 'debate' || gameState?.phase === 'vote') && currentOptions.a && (
+                <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '10px', padding: '1rem' }}>
+                  <h4 style={{ textAlign: 'center', marginBottom: '0.8rem' }}>⚔️ 本轮抉择</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    {[{ key: 'A', opt: currentOptions.a, color: '#ef4444' }, { key: 'B', opt: currentOptions.b, color: '#3b82f6' }].map(({ key, opt, color }) => (
+                      <div key={key} onClick={() => gameState?.phase === 'vote' && submitVote(key)} style={{ padding: '1rem', borderRadius: '8px', border: `2px solid ${myVote === key ? color : `${color}40`}`, background: `${color}15`, cursor: gameState?.phase === 'vote' ? 'pointer' : 'default' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                          <span style={{ fontWeight: 700, color }}>选项 {key}</span>
+                          <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', color: '#a5a5b8' }}>{opt?.tag}</span>
+                        </div>
+                        <p style={{ lineHeight: 1.4, fontSize: '0.85rem' }}>{opt?.text}</p>
+                        {gameState?.phase === 'vote' && <div style={{ marginTop: '0.6rem', textAlign: 'center', fontSize: '1.1rem', fontWeight: 600, color: '#fbbf24' }}>{Object.values(votes).filter(v => v === key).length} 票</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {gameState?.phase === 'ended' && (
+                <div style={{ background: 'linear-gradient(145deg, rgba(251,191,36,0.1), rgba(167,139,250,0.1))', borderRadius: '10px', padding: '1.5rem', textAlign: 'center' }}>
+                  <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#fbbf24' }}>🏆 编年史完成！</h2>
+                  <div style={{ maxWidth: '350px', margin: '0 auto 1rem' }}>
+                    {Object.entries(gameState?.scores || {}).map(([id, score]) => ({ player: players.find(p => p.id === id), total: (score.influence || 0) + (score.debates || 0) })).sort((a, b) => b.total - a.total).map((rank, i) => (
+                      <div key={rank.player?.id || i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem', marginBottom: '0.3rem', background: i === 0 ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                        <span style={{ fontWeight: 700, color: i < 3 ? '#fbbf24' : '#6b6b7e' }}>#{i + 1}</span>
+                        <span>{rank.player?.avatar}</span>
+                        <span style={{ flex: 1 }}>{rank.player?.name}</span>
+                        <span style={{ fontWeight: 600, color: '#a78bfa' }}>{rank.total}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={resetGame} style={{ padding: '0.6rem 1.5rem', background: 'linear-gradient(135deg, #a78bfa, #f472b6)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>返回大厅</button>
+                </div>
+              )}
+            </div>
+            <div style={{ width: '280px', display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', padding: '0.6rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                {players.map(p => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.2rem 0.5rem', background: votes[p.id] ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.05)', borderRadius: '12px', fontSize: '0.75rem' }}>
+                    <span>{p.avatar}</span>
+                    <span style={{ maxWidth: '50px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                    {votes[p.id] && <span style={{ color: '#4ade80', fontWeight: 700 }}>{votes[p.id]}</span>}
+                  </div>
+                ))}
+              </div>
+             
+              <div style={{ flex: 1, overflowY: 'auto', padding: '0.6rem' }}>
+                {messages.map((msg, i) => (
+                  <div key={i} style={{ marginBottom: '0.5rem', fontSize: '0.8rem' }}>
+                    {msg.type === 'system' ? (
+                      <div style={{ color: '#a78bfa', fontStyle: 'italic' }}>{msg.text}</div>
+                    ) : (
+                      <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                          <span style={{ color: '#fbbf24', fontWeight: 600 }}>{msg.sender?.avatar} {msg.sender?.name}</span>
+                          {msg.choice && <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', background: msg.choice === 'A' ? 'rgba(239,68,68,0.3)' : 'rgba(59,130,246,0.3)', borderRadius: '3px' }}>{msg.choice}</span>}
+                        </div>
+                        <div>{msg.text}</div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+             
+              {gameState?.phase === 'debate' && (
+                <div style={{ padding: '0.6rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.4rem' }}>
+                    <input type="text" value={debateInput} onChange={(e) => setDebateInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitDebate()} placeholder="输入观点..." style={{ flex: 1, padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontSize: '0.8rem', outline: 'none' }} />
+                    <button onClick={submitDebate} style={{ padding: '0.5rem 0.8rem', background: 'linear-gradient(135deg, #a78bfa, #f472b6)', border: 'none', borderRadius: '6px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>发送</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.3rem' }}>
+                    <button onClick={() => setDebateInput('我支持选项A，因为')} style={{ padding: '0.2rem 0.5rem', background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', color: '#ef4444', fontSize: '0.7rem', cursor: 'pointer' }}>🅰️</button>
+                    <button onClick={() => setDebateInput('我支持选项B，因为')} style={{ padding: '0.2rem 0.5rem', background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '10px', color: '#3b82f6', fontSize: '0.7rem', cursor: 'pointer' }}>🅱️</button>
+                  </div>
+                </div>
+              )}
+             
+              {gameState?.phase === 'vote' && !myVote && (
+                <div style={{ padding: '0.8rem', textAlign: 'center', background: 'rgba(167,139,250,0.1)' }}>
+                  <p style={{ color: '#fbbf24', fontWeight: 600, fontSize: '0.9rem' }}>⏰ 请在左侧投票！</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       );
     }
+
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
