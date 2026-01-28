@@ -25,8 +25,10 @@
       DEBATE_DURATION: 90,
       VOTE_DURATION: 30,
       TOTAL_ROUNDS: 5,
-      ENTRY_FEE: '0.01',
+      ENTRY_FEE: '0',
       GENLAYER_CONTRACT: '0x4F5F132ba540f1C685B0188D59990302903aE186',
+      GENLAYER_RPC: 'https://studio.genlayer.com:8443/api',
+      GENLAYER_CHAIN_ID: '0x7A31C7', // 8007111
       FIREBASE: {
         apiKey: "AIzaSyBX4tOb30jWKK6aBUsqERQaOAF4CxCfMmQ",
         authDomain: "consensus-chronicle.firebaseapp.com",
@@ -198,6 +200,26 @@
         setWalletConnecting(true);
         try {
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          // 切换到GenLayer网络
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: CONFIG.GENLAYER_CHAIN_ID }]
+            });
+          } catch (switchError) {
+            if (switchError.code === 4902) {
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: CONFIG.GENLAYER_CHAIN_ID,
+                  chainName: 'GenLayer Studio Testnet',
+                  nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 },
+                  rpcUrls: [CONFIG.GENLAYER_RPC],
+                  blockExplorerUrls: ['https://studio.genlayer.com']
+                }]
+              });
+            }
+          }
           setWalletAddress(accounts[0]);
           setPlayer(p => ({ ...p, id: accounts[0] }));
           return accounts[0];
@@ -212,10 +234,10 @@
           const calldataHex = '0x' + Array.from(calldata).map(b => b.toString(16).padStart(2, '0')).join('');
           await window.ethereum.request({
             method: 'eth_sendTransaction',
-            params: [{ from: walletAddress, to: CONFIG.GENLAYER_CONTRACT, data: calldataHex, value: '0x' + (BigInt(Math.floor(parseFloat(CONFIG.ENTRY_FEE) * 1e18))).toString(16) }]
+            params: [{ from: walletAddress, to: CONFIG.GENLAYER_CONTRACT, data: calldataHex, value: '0x0' }]
           });
           return true;
-        } catch (err) { alert('支付失败: ' + err.message); return false; }
+        } catch (err) { alert('调用合约失败: ' + err.message); return false; }
       };
 
       const recordGameEnd = async (gameData) => {
@@ -229,8 +251,11 @@
 
       const createRoom = async (theme) => {
         if (!db || !player.name) return;
-        let address = walletAddress || await connectWallet();
-        if (!address) return;
+        let address = walletAddress;
+        if (!address) {
+          address = await connectWallet();
+          if (!address) return;
+        }
         if (!await payEntryFee()) return;
         const newRoomId = `room_${Date.now()}`;
         await db.ref(`rooms/${newRoomId}`).set({ theme, host: address, status: 'waiting', createdAt: Date.now(), players: { [address]: { id: address, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false } } });
@@ -241,8 +266,11 @@
 
       const joinRoom = async (targetRoomId) => {
         if (!db || !player.name) return;
-        let address = walletAddress || await connectWallet();
-        if (!address) return;
+        let address = walletAddress;
+        if (!address) {
+          address = await connectWallet();
+          if (!address) return;
+        }
         if (!await payEntryFee()) return;
         await db.ref(`rooms/${targetRoomId}/players/${address}`).set({ id: address, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false });
         setRoomId(targetRoomId);
@@ -423,7 +451,7 @@
                   </div>
                   
                   <div style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '0.8rem', background: 'rgba(251,191,36,0.1)', borderRadius: '10px', border: '1px solid rgba(251,191,36,0.3)' }}>
-                    <p style={{ color: '#fbbf24' }}>⚡ 创建/加入房间需支付 {CONFIG.ENTRY_FEE} GEN</p>
+                    <p style={{ color: '#fbbf24' }}>⚡ 创建/加入房间需调用GenLayer合约</p>
                   </div>
                   
                   {availableRooms.length > 0 && (
