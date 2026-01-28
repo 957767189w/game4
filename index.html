@@ -4,15 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>共识编年史 | Consensus Chronicle</title>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #0f0f1a; }
-    #root { min-height: 100vh; }
+    body { font-family: system-ui, sans-serif; background: #0f0f1a; }
   </style>
 </head>
 <body>
@@ -20,26 +19,26 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
+    // ========== 配置 ==========
     const CONFIG = {
       ROOM_SIZE: { min: 2, max: 8 },
       DEBATE_DURATION: 90,
       VOTE_DURATION: 30,
       TOTAL_ROUNDS: 5,
-      ENTRY_FEE: '0',
+      ENTRY_FEE: 10000000000000000, // 0.01 GEN in wei
+      ROOM_TIMEOUT_AI: 60000,      // 1分钟无人加入则AI填充
+      ROOM_TIMEOUT_CLOSE: 120000,  // 2分钟未开始则关闭
+      GENLAYER_API: 'https://studio.genlayer.com:8443/api',
       GENLAYER_CONTRACT: '0x4F5F132ba540f1C685B0188D59990302903aE186',
-      GENLAYER_RPC: 'https://studio.genlayer.com:8443/api',
-      GENLAYER_CHAIN_ID: '0x7A31C7', // 8007111
       FIREBASE: {
         apiKey: "AIzaSyBX4tOb30jWKK6aBUsqERQaOAF4CxCfMmQ",
         authDomain: "consensus-chronicle.firebaseapp.com",
         databaseURL: "https://consensus-chronicle-default-rtdb.firebaseio.com",
-        projectId: "consensus-chronicle",
-        storageBucket: "consensus-chronicle.firebasestorage.app",
-        messagingSenderId: "175835565956",
-        appId: "1:175835565956:web:80e59789fade3d439757d1"
+        projectId: "consensus-chronicle"
       }
     };
 
+    // ========== 故事系统 ==========
     const STORY_ARCS = {
       fantasy: {
         name: '奇幻冒险', icon: '🏰',
@@ -65,7 +64,7 @@
       },
       mystery: {
         name: '悬疑推理', icon: '🔍',
-        opening: '暴风雨之夜，富豪陈家的家主陈老爷在书房被人毒杀。大门从内反锁，窗户完好无损。在场的有：大儿子陈明、二女儿陈月、管家老张、女仆小芳，以及刚到访的神秘商人李先生。',
+        opening: '暴风雨之夜，富豪陈家的家主陈老爷在书房被人毒杀。大门从内反锁，窗户完好无损。在场的有：大儿子陈明、二女儿陈月、管家老张、女仆小芳，以及刚到访的神秘商人李先生。每个人似乎都有嫌疑，每个人都有秘密...',
         rounds: [
           { context: '警方封锁了宅邸，所有人都不能离开。作为被邀请来的侦探，你必须开始调查。', a: { text: '首先搜查死者的书房，寻找物证和线索。', tag: '物证优先·系统', consequence: '在书房发现了一封被烧毁一半的信件，隐约可见"背叛"和"遗产"字样...' }, b: { text: '分别询问在场每个人，观察他们的反应和漏洞。', tag: '察言观色·直觉', consequence: '询问中发现管家老张神色慌张，而陈月提到父亲最近收到过威胁信...' } },
           { contextA: '信件显示陈老爷曾打算更改遗嘱，剥夺某人的继承权。', contextB: '进一步调查发现，威胁信来自一个神秘组织，而李先生似乎与这个组织有关联。', a: { text: '深入调查遗产问题，追查谁是被剥夺继承权的人。', tag: '追踪金钱·现实', consequenceFromA: '发现陈明欠下巨额赌债，而陈月一直在秘密资助一个慈善机构...', consequenceFromB: '调查显示陈老爷最近转移了大笔资产，但去向不明...' }, b: { text: '调查李先生的身份和来历，他的出现太过巧合。', tag: '追查外人·怀疑', consequenceFromA: '李先生的身份被揭露：他是陈老爷失散多年的私生子...', consequenceFromB: '李先生承认自己是来谈生意的，但他带来了一个惊人的秘密...' } },
@@ -76,54 +75,40 @@
       },
       political: {
         name: '宫廷权谋', icon: '👑',
-        opening: '大齐王朝，永安三十年。老皇帝驾崩的消息震惊朝野。遗诏中却出现了令人费解的内容：皇位不传给三位成年皇子中的任何一个，而是由"最能代表民心者"继承。一时间，朝堂暗流涌动...',
+        opening: '大齐王朝，永安三十年。老皇帝驾崩的消息震惊朝野。遗诏中却出现了令人费解的内容：皇位不传给三位成年皇子中的任何一个，而是由"最能代表民心者"继承。一时间，朝堂暗流涌动，各方势力蠢蠢欲动...',
         rounds: [
           { context: '作为先帝信任的内阁首辅，你必须在混乱中维持局面。三位皇子各有支持者：太子仁厚但懦弱，二皇子精明但残忍，三皇子年轻但锐意改革。', a: { text: '支持太子按传统继位，维护嫡长子继承制度的稳定。', tag: '传统正统·保守', consequence: '太子获得你的支持后信心大增，但二皇子的支持者开始暗中联络军方...' }, b: { text: '提议三位皇子各陈施政纲领，由百官公议决定人选。', tag: '公议决选·革新', consequence: '这个提议引发轩然大波，改革派欢呼，保守派强烈反对...' } },
           { contextA: '二皇子勾结边疆将军，密谋起兵"清君侧"，局势骤然紧张。', contextB: '公议之前，有人揭发三皇子与外邦使节有秘密往来，涉嫌叛国。', a: { text: '紧急调动御林军布防，同时派密使分化二皇子的同盟。', tag: '分化瓦解·权谋', consequenceFromA: '你的计策成功拖延了二皇子的行动，但他开始怀疑内部有人背叛...', consequenceFromB: '你利用这个机会打压三皇子，但调查显示揭发信可能是伪造的...' }, b: { text: '主动找二皇子谈判，了解他的诉求，寻找和平解决的可能。', tag: '和谈止兵·冒险', consequenceFromA: '二皇子提出条件：他要太子的位置，但承诺善待兄弟...', consequenceFromB: '揭发事件使三皇子陷入困境，你决定亲自调查真相...' } },
           { contextAA: '二皇子的盟友被成功策反，但对方要求事成之后封侯拜相。', contextAB: '调查显示揭发信出自太后的亲信，目的是扶持她的外甥上位。', contextBA: '二皇子的条件令人难以接受，但他手握重兵，拒绝可能导致内战。', contextBB: '太后开始公开干政，以先帝遗孀的身份要求"垂帘听政"。', a: { text: '答应封侯的条件，两害相权取其轻，先稳住局面。', tag: '权宜之计·妥协', consequence: '局势暂时稳定，但你知道这只是开始，更大的风暴还在后面...' }, b: { text: '揭露太后的阴谋，联合三位皇子共同对抗外戚专权。', tag: '团结抗敌·正义', consequence: '你的揭露让朝堂震动，三位皇子破天荒地站在了一起...' } },
           { contextA: '各方势力暂时平衡，但储位之争仍悬而未决。这时边疆传来急报：北方游牧民族大军压境。', contextB: '太后被软禁，外戚势力瓦解。但在整理太后寝宫时，发现了先帝的另一份遗诏...', a: { text: '建议三位皇子亲征北疆，谁能击退敌军谁就是新帝。', tag: '以战定帝·魄力', consequence: '三位皇子率军北上，这场战争将决定大齐的未来...' }, b: { text: '提议先选出新帝再应对外敌，国不可一日无君。', tag: '先内后外·稳重', consequence: '在你的主持下，一场决定性的朝议即将开始...' } },
-          { contextA: '北疆战事胶着，太子仁德抚民，二皇子勇猛作战，三皇子后勤调度有方。三人各有功劳，难分高下。', contextB: '先帝的真正遗诏被找到，上面写着：皇位传给"能让三个儿子和睦共处者"。这个人...竟然是你。', a: { text: '建议三位皇子共同执政，建立"三王议政"的新制度。', tag: '权力共享·开创', ending: '大齐王朝进入了前所未有的"三王时代"。太子主内政，二皇子掌军事，三皇子负责改革。虽然争吵不断，但在你的调和下，这个制度竟然运转了起来。' }, b: { text: '按军功大小排序，由功劳最大者继承皇位。', tag: '功勋定位·公平', ending: '二皇子凭借战功登基，但他没有辜负信任。在位期间北击游牧、内修政治，大齐迎来了中兴。' } }
+          { contextA: '北疆战事胶着，太子仁德抚民，二皇子勇猛作战，三皇子后勤调度有方。三人各有功劳，难分高下。', contextB: '先帝的真正遗诏被找到，上面写着：皇位传给"能让三个儿子和睦共处者"。这个人...竟然是你。', a: { text: '建议三位皇子共同执政，建立"三王议政"的新制度。', tag: '权力共享·开创', ending: '大齐王朝进入了前所未有的"三王时代"。太子主内政，二皇子掌军事，三皇子负责改革。虽然争吵不断，但在你的调和下，这个制度竟然运转了起来。二十年后，你在回忆录中写道："最好的制度不是完美的制度，而是能自我纠错的制度。"' }, b: { text: '按军功大小排序，由功劳最大者继承皇位。', tag: '功勋定位·公平', ending: '二皇子凭借战功登基，但他没有辜负信任。在位期间北击游牧、内修政治，大齐迎来了中兴。三皇子被封为改革特使，太子主管礼部教化。你以七十高龄辞官归隐时，新帝亲自送行十里，说："没有首辅大人，就没有今日的大齐。"' } }
         ]
       }
     };
 
+    // ========== AI玩家 ==========
     const AI_PLAYERS = [
       { id: 'ai_1', name: '智者·艾丝', avatar: '🧙‍♀️', exp: 1200, isAI: true, style: 'analytical' },
       { id: 'ai_2', name: '勇者·凯恩', avatar: '⚔️', exp: 1100, isAI: true, style: 'bold' },
       { id: 'ai_3', name: '学者·诺亚', avatar: '📚', exp: 1300, isAI: true, style: 'cautious' },
+      { id: 'ai_4', name: '商人·马可', avatar: '💰', exp: 1150, isAI: true, style: 'pragmatic' },
+      { id: 'ai_5', name: '诗人·月华', avatar: '🎭', exp: 1050, isAI: true, style: 'romantic' },
     ];
 
     const generateAIDebate = (style) => {
       const debates = {
-        analytical: { A: ['从逻辑上分析，选项A的成功率更高', '理性思考，A是最优解'], B: ['仔细分析后，B的长期收益更大', '综合考量，B是更稳妥的方案'] },
-        bold: { A: ['勇者不惧！A才是真正的英雄之选', '果断出击！支持A！'], B: ['B才是真正的勇气！', '智勇双全才是真英雄，选B！'] },
+        analytical: { A: ['从逻辑上分析，选项A的成功率更高', '数据表明，果断行动往往效果更好'], B: ['仔细分析后，B的长期收益更大', '综合考量，B是更稳妥的方案'] },
+        bold: { A: ['勇者不惧！A才是真正的英雄之选', '果断出击！支持A！'], B: ['B才是真正的勇气！敢于不同！', '智勇双全才是真英雄，选B！'] },
         cautious: { A: ['虽然冒险，但A或许是必要的', '两害相权取其轻，支持A'], B: ['谨慎起见，B更安全', '留得青山在，选B更明智'] },
+        pragmatic: { A: ['从利益角度，A回报更高', '商人的直觉告诉我，选A'], B: ['B的风险更可控', '长远来看，B收益更稳定'] },
+        romantic: { A: ['A有种悲壮的美感', '命运的诗篇需要A这样的转折'], B: ['B代表着希望与可能', 'B才是最动人的答案'] },
       };
       const choice = Math.random() > 0.5 ? 'A' : 'B';
       const options = debates[style]?.[choice] || debates.analytical[choice];
       return { text: options[Math.floor(Math.random() * options.length)], choice };
     };
 
-    const msgpack = {
-      encode: (obj) => {
-        const encodeValue = (val) => {
-          if (val === null) return [0xc0];
-          if (typeof val === 'string') {
-            const bytes = new TextEncoder().encode(val);
-            if (bytes.length <= 31) return [0xa0 | bytes.length, ...bytes];
-            return [0xd9, bytes.length, ...bytes];
-          }
-          if (Array.isArray(val)) {
-            let result = [0x90 | val.length];
-            val.forEach(item => result.push(...encodeValue(item)));
-            return result;
-          }
-          return [0xc0];
-        };
-        return new Uint8Array(encodeValue(obj));
-      }
-    };
-
+    // ========== 主组件 ==========
     function App() {
       const [db, setDb] = useState(null);
       const [walletAddress, setWalletAddress] = useState(null);
@@ -140,9 +125,12 @@
       const [myVote, setMyVote] = useState(null);
       const [timer, setTimer] = useState(0);
       const [leaderboard, setLeaderboard] = useState([]);
+      const [loading, setLoading] = useState(false);
       const timerRef = useRef(null);
       const messagesEndRef = useRef(null);
+      const roomCheckRef = useRef(null);
 
+      // 初始化Firebase
       useEffect(() => {
         try {
           if (!firebase.apps.length) firebase.initializeApp(CONFIG.FIREBASE);
@@ -152,27 +140,60 @@
           const saved = localStorage.getItem('consensus_leaderboard');
           if (saved) setLeaderboard(JSON.parse(saved));
         } catch {}
-        return () => { if (timerRef.current) clearInterval(timerRef.current); };
+        return () => {
+          if (timerRef.current) clearInterval(timerRef.current);
+          if (roomCheckRef.current) clearInterval(roomCheckRef.current);
+        };
       }, []);
 
+      // 监听房间列表 + 处理超时房间
       useEffect(() => {
         if (!db) return;
         const roomsRef = db.ref('rooms');
         roomsRef.on('value', (snapshot) => {
           const data = snapshot.val();
+          const now = Date.now();
           if (data) {
-            setAvailableRooms(Object.entries(data).filter(([_, r]) => r.status === 'waiting').map(([id, r]) => ({ id, ...r })));
-          } else { setAvailableRooms([]); }
+            const rooms = [];
+            Object.entries(data).forEach(([id, room]) => {
+              const age = now - room.createdAt;
+              // 超过2分钟未开始的房间标记为关闭
+              if (room.status === 'waiting' && age > CONFIG.ROOM_TIMEOUT_CLOSE) {
+                db.ref(`rooms/${id}`).update({ status: 'closed' });
+                return;
+              }
+              // 只显示等待中的房间
+              if (room.status === 'waiting') {
+                rooms.push({ id, ...room, age });
+              }
+            });
+            setAvailableRooms(rooms);
+          } else {
+            setAvailableRooms([]);
+          }
         });
       }, [db]);
 
+      // 监听当前房间
       useEffect(() => {
         if (!db || !roomId) return;
-        db.ref(`rooms/${roomId}`).on('value', (s) => {
+        const roomRef = db.ref(`rooms/${roomId}`);
+        const gameRef = db.ref(`games/${roomId}`);
+        
+        roomRef.on('value', (s) => {
           const d = s.val();
-          if (d) { setRoomData(d); if (d.players) setPlayers(Object.values(d.players)); }
+          if (d) {
+            setRoomData(d);
+            if (d.players) setPlayers(Object.values(d.players));
+            // 房间被关闭时返回首页
+            if (d.status === 'closed') {
+              alert('房间已关闭');
+              resetGame();
+            }
+          }
         });
-        db.ref(`games/${roomId}`).on('value', (s) => {
+        
+        gameRef.on('value', (s) => {
           const d = s.val();
           if (d) {
             setGameState(d);
@@ -180,8 +201,41 @@
             if (d.timerEnd && d.phase !== 'ended') setTimer(Math.max(0, Math.floor((d.timerEnd - Date.now()) / 1000)));
           }
         });
+
+        return () => {
+          roomRef.off();
+          gameRef.off();
+        };
       }, [db, roomId]);
 
+      // 房间超时检查：1分钟无人加入则添加AI
+      useEffect(() => {
+        if (!db || !roomId || !roomData || roomData.status !== 'waiting') return;
+        if (roomCheckRef.current) clearInterval(roomCheckRef.current);
+        
+        roomCheckRef.current = setInterval(() => {
+          const age = Date.now() - roomData.createdAt;
+          const playerCount = Object.keys(roomData.players || {}).filter(id => !id.startsWith('ai_')).length;
+          
+          // 超过1分钟且只有房主一人，添加AI
+          if (age > CONFIG.ROOM_TIMEOUT_AI && playerCount === 1 && player.id === roomData.host) {
+            const currentPlayerIds = Object.keys(roomData.players || {});
+            const availableAI = AI_PLAYERS.filter(ai => !currentPlayerIds.includes(ai.id));
+            const aiToAdd = availableAI.slice(0, CONFIG.ROOM_SIZE.min - 1);
+            
+            aiToAdd.forEach((ai, i) => {
+              setTimeout(() => {
+                db.ref(`rooms/${roomId}/players/${ai.id}`).set(ai);
+                addMessage('system', `${ai.avatar} ${ai.name} 加入了房间`);
+              }, i * 1000);
+            });
+          }
+        }, 5000);
+
+        return () => { if (roomCheckRef.current) clearInterval(roomCheckRef.current); };
+      }, [db, roomId, roomData, player.id]);
+
+      // 计时器同步
       useEffect(() => {
         if (!gameState?.timerEnd || gameState?.phase === 'ended') return;
         if (timerRef.current) clearInterval(timerRef.current);
@@ -195,31 +249,12 @@
 
       useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
+      // ========== 钱包连接 ==========
       const connectWallet = async () => {
         if (!window.ethereum) { alert('请安装MetaMask钱包'); return null; }
         setWalletConnecting(true);
         try {
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          // 切换到GenLayer网络
-          try {
-            await window.ethereum.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: CONFIG.GENLAYER_CHAIN_ID }]
-            });
-          } catch (switchError) {
-            if (switchError.code === 4902) {
-              await window.ethereum.request({
-                method: 'wallet_addEthereumChain',
-                params: [{
-                  chainId: CONFIG.GENLAYER_CHAIN_ID,
-                  chainName: 'GenLayer Studio Testnet',
-                  nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 },
-                  rpcUrls: [CONFIG.GENLAYER_RPC],
-                  blockExplorerUrls: ['https://studio.genlayer.com']
-                }]
-              });
-            }
-          }
           setWalletAddress(accounts[0]);
           setPlayer(p => ({ ...p, id: accounts[0] }));
           return accounts[0];
@@ -227,73 +262,157 @@
         finally { setWalletConnecting(false); }
       };
 
-      const payEntryFee = async () => {
-        if (!window.ethereum || !walletAddress) { alert('请先连接钱包'); return false; }
+      // ========== GenLayer扣费 ==========
+      const payEntryFee = async (address) => {
+        setLoading(true);
         try {
-          const calldata = msgpack.encode(['pay_entry_fee', []]);
-          const calldataHex = '0x' + Array.from(calldata).map(b => b.toString(16).padStart(2, '0')).join('');
-          await window.ethereum.request({
-            method: 'eth_sendTransaction',
-            params: [{ from: walletAddress, to: CONFIG.GENLAYER_CONTRACT, data: calldataHex, value: '0x0' }]
+          const response = await fetch(CONFIG.GENLAYER_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              method: 'send_transaction',
+              params: {
+                to_address: CONFIG.GENLAYER_CONTRACT,
+                from_address: address,
+                value: CONFIG.ENTRY_FEE,
+                data: ['pay_entry_fee', [address, Date.now()]]
+              },
+              id: Date.now()
+            })
           });
+          const result = await response.json();
+          if (result.error) {
+            alert('扣费失败: ' + (result.error.message || JSON.stringify(result.error)));
+            return false;
+          }
           return true;
-        } catch (err) { alert('调用合约失败: ' + err.message); return false; }
+        } catch (err) {
+          alert('扣费失败: ' + err.message);
+          return false;
+        } finally {
+          setLoading(false);
+        }
       };
 
-      const recordGameEnd = async (gameData) => {
+      // ========== GenLayer记录游戏结果 ==========
+      const recordGameToGenLayer = async (gameData) => {
         if (!walletAddress) return;
         try {
-          const calldata = msgpack.encode(['record_game', [roomId, gameData.theme, gameData.winner || walletAddress, gameData.path?.join('') || '', Math.floor(Date.now() / 1000), players.length]]);
-          const calldataHex = '0x' + Array.from(calldata).map(b => b.toString(16).padStart(2, '0')).join('');
-          await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: walletAddress, to: CONFIG.GENLAYER_CONTRACT, data: calldataHex }] });
-        } catch (err) { console.error('Record game error:', err); }
+          await fetch(CONFIG.GENLAYER_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              method: 'send_transaction',
+              params: {
+                to_address: CONFIG.GENLAYER_CONTRACT,
+                from_address: walletAddress,
+                value: 0,
+                data: ['record_game', [
+                  roomId,
+                  gameData.theme,
+                  gameData.winner,
+                  gameData.path.join(''),
+                  gameData.scores,
+                  Math.floor(Date.now() / 1000)
+                ]]
+              },
+              id: Date.now()
+            })
+          });
+        } catch (err) { console.error('Record to GenLayer error:', err); }
       };
 
+      // ========== 创建房间 ==========
       const createRoom = async (theme) => {
         if (!db || !player.name) return;
+        
         let address = walletAddress;
         if (!address) {
           address = await connectWallet();
           if (!address) return;
         }
-        if (!await payEntryFee()) return;
+        
+        // 调用GenLayer扣费
+        const paid = await payEntryFee(address);
+        if (!paid) return;
+        
         const newRoomId = `room_${Date.now()}`;
-        await db.ref(`rooms/${newRoomId}`).set({ theme, host: address, status: 'waiting', createdAt: Date.now(), players: { [address]: { id: address, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false } } });
+        await db.ref(`rooms/${newRoomId}`).set({
+          theme,
+          host: address,
+          status: 'waiting',
+          createdAt: Date.now(),
+          players: { [address]: { id: address, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false } }
+        });
         setRoomId(newRoomId);
         setView('room');
-        setTimeout(() => addAIPlayers(newRoomId), 1500);
+        addMessage('system', `房间已创建，等待其他玩家加入...`);
       };
 
+      // ========== 加入房间 ==========
       const joinRoom = async (targetRoomId) => {
         if (!db || !player.name) return;
+        
         let address = walletAddress;
         if (!address) {
           address = await connectWallet();
           if (!address) return;
         }
-        if (!await payEntryFee()) return;
-        await db.ref(`rooms/${targetRoomId}/players/${address}`).set({ id: address, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false });
+        
+        // 调用GenLayer扣费
+        const paid = await payEntryFee(address);
+        if (!paid) return;
+        
+        await db.ref(`rooms/${targetRoomId}/players/${address}`).set({
+          id: address,
+          name: player.name,
+          avatar: player.avatar,
+          exp: player.exp,
+          isAI: false
+        });
         setRoomId(targetRoomId);
         setView('room');
       };
 
-      const addAIPlayers = async (targetRoomId) => {
-        if (!db) return;
-        for (let ai of AI_PLAYERS) {
-          await new Promise(r => setTimeout(r, 1000 + Math.random() * 1500));
-          await db.ref(`rooms/${targetRoomId}/players/${ai.id}`).set(ai);
-          addMessage('system', `${ai.avatar} ${ai.name} 加入了房间`);
+      // ========== 添加AI玩家 ==========
+      const addAIPlayers = async () => {
+        if (!db || !roomId) return;
+        const currentPlayerIds = Object.keys(roomData?.players || {});
+        const availableAI = AI_PLAYERS.filter(ai => !currentPlayerIds.includes(ai.id));
+        const shuffled = availableAI.sort(() => Math.random() - 0.5);
+        const aiToAdd = shuffled.slice(0, Math.min(3, CONFIG.ROOM_SIZE.max - currentPlayerIds.length));
+        
+        for (let i = 0; i < aiToAdd.length; i++) {
+          await new Promise(r => setTimeout(r, 1000));
+          await db.ref(`rooms/${roomId}/players/${aiToAdd[i].id}`).set(aiToAdd[i]);
+          addMessage('system', `${aiToAdd[i].avatar} ${aiToAdd[i].name} 加入了房间`);
         }
       };
 
+      // ========== 开始游戏 ==========
       const startGame = async () => {
         if (!db || !roomId || players.length < CONFIG.ROOM_SIZE.min) return;
+        
         await db.ref(`rooms/${roomId}`).update({ status: 'playing' });
+        
         const theme = roomData?.theme || 'fantasy';
         const arc = STORY_ARCS[theme];
         const initScores = {};
         players.forEach(p => { initScores[p.id] = { influence: 0, debates: 0, wins: 0 }; });
-        await db.ref(`games/${roomId}`).set({ round: 1, phase: 'debate', path: [], scores: initScores, votes: {}, story: [{ text: arc.opening, type: 'opening', round: 0 }], timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000, messages: {} });
+        
+        await db.ref(`games/${roomId}`).set({
+          round: 1,
+          phase: 'debate',
+          path: [],
+          scores: initScores,
+          votes: {},
+          story: [{ text: arc.opening, type: 'opening', round: 0 }],
+          timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000,
+          messages: {}
+        });
+        
         setView('game');
         addMessage('system', `📖 ${arc.name}开始了！第 1/${CONFIG.TOTAL_ROUNDS} 轮 - 辩论阶段`);
         setTimeout(() => simulateAIDebate(), 3000);
@@ -314,8 +433,11 @@
           await db.ref(`games/${roomId}`).update({ phase: 'vote', timerEnd: Date.now() + CONFIG.VOTE_DURATION * 1000, votes: {} });
           addMessage('system', '🗳️ 投票阶段开始！');
           setMyVote(null);
+          // AI投票
           players.filter(p => p.isAI).forEach((ai, i) => {
-            setTimeout(async () => { await db.ref(`games/${roomId}/votes/${ai.id}`).set(Math.random() > 0.5 ? 'A' : 'B'); }, (i + 1) * 2000);
+            setTimeout(async () => {
+              await db.ref(`games/${roomId}/votes/${ai.id}`).set(Math.random() > 0.5 ? 'A' : 'B');
+            }, (i + 1) * 2000);
           });
         } else if (gameState.phase === 'vote') {
           await calculateResult();
@@ -328,19 +450,40 @@
         const voteCount = { A: 0, B: 0 };
         Object.values(votes).forEach(v => { if (v) voteCount[v]++; });
         const winner = voteCount.A >= voteCount.B ? 'A' : 'B';
+        
         const newScores = { ...gameState.scores };
-        Object.entries(votes).forEach(([id, v]) => { if (v === winner && newScores[id]) { newScores[id].influence = (newScores[id].influence || 0) + 30; newScores[id].wins = (newScores[id].wins || 0) + 1; } });
+        Object.entries(votes).forEach(([id, v]) => {
+          if (v === winner && newScores[id]) {
+            newScores[id].influence = (newScores[id].influence || 0) + 30;
+            newScores[id].wins = (newScores[id].wins || 0) + 1;
+          }
+        });
+        
         const newPath = [...(gameState.path || []), winner];
         const round = gameState.round;
         const consequence = getConsequence(round, winner, gameState.path || []);
         const winOpt = getOption(round, winner);
-        const newStory = [...(gameState.story || []), { text: `【众人选择】${winOpt?.text}`, type: 'choice', round, winner }, { text: consequence, type: 'consequence', round }];
+        const newStory = [...(gameState.story || []),
+          { text: `【众人选择】${winOpt?.text}`, type: 'choice', round, winner },
+          { text: consequence, type: 'consequence', round }
+        ];
+        
         addMessage('system', `📜 选项 ${winner} 获胜！(${voteCount[winner]}票 vs ${voteCount[winner === 'A' ? 'B' : 'A']}票)`);
+        
         if (round >= CONFIG.TOTAL_ROUNDS) {
           await db.ref(`games/${roomId}`).update({ phase: 'ended', scores: newScores, path: newPath, story: newStory, timerEnd: null });
           addMessage('system', '🏆 编年史完成！');
+          
+          // 记录到GenLayer
           const topPlayer = Object.entries(newScores).sort((a, b) => (b[1].influence + b[1].debates) - (a[1].influence + a[1].debates))[0];
-          await recordGameEnd({ theme: roomData?.theme, winner: topPlayer?.[0], path: newPath });
+          await recordGameToGenLayer({
+            theme: roomData?.theme,
+            winner: topPlayer?.[0],
+            path: newPath,
+            scores: newScores
+          });
+          
+          // 更新本地排行榜
           const myScore = newScores[player.id] || { influence: 0, debates: 0 };
           const totalScore = (myScore.influence || 0) + (myScore.debates || 0);
           if (player.name && totalScore > 0) {
@@ -351,12 +494,21 @@
         } else {
           const nextRound = round + 1;
           const nextContext = getContext(nextRound, newPath);
-          await db.ref(`games/${roomId}`).update({ round: nextRound, phase: 'debate', scores: newScores, path: newPath, story: [...newStory, { text: nextContext, type: 'context', round: nextRound }], timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000, votes: {} });
+          await db.ref(`games/${roomId}`).update({
+            round: nextRound,
+            phase: 'debate',
+            scores: newScores,
+            path: newPath,
+            story: [...newStory, { text: nextContext, type: 'context', round: nextRound }],
+            timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000,
+            votes: {}
+          });
           addMessage('system', `📖 第 ${nextRound}/${CONFIG.TOTAL_ROUNDS} 轮 - 辩论阶段`);
           setTimeout(() => simulateAIDebate(), 3000);
         }
       };
 
+      // 故事辅助函数
       const getContext = (roundNum, path) => {
         const theme = roomData?.theme || 'fantasy';
         const roundData = STORY_ARCS[theme]?.rounds[roundNum - 1];
@@ -389,6 +541,7 @@
         return { a: roundData?.a, b: roundData?.b };
       };
 
+      // 消息函数
       const addMessage = async (type, text, sender = null, choice = null) => {
         if (!db || !roomId) return;
         await db.ref(`games/${roomId}/messages`).push().set({ type, text, sender, choice, timestamp: Date.now() });
@@ -410,13 +563,14 @@
 
       const resetGame = () => {
         if (timerRef.current) clearInterval(timerRef.current);
+        if (roomCheckRef.current) clearInterval(roomCheckRef.current);
         setRoomId(null); setRoomData(null); setGameState(null); setPlayers([]); setMessages([]); setMyVote(null); setView('home');
       };
 
       const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
       const shortAddress = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '';
 
-      // HOME
+      // ========== 渲染: 首页 ==========
       if (view === 'home') {
         return (
           <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)', padding: '2rem', color: '#e8e8e8' }}>
@@ -451,7 +605,7 @@
                   </div>
                   
                   <div style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '0.8rem', background: 'rgba(251,191,36,0.1)', borderRadius: '10px', border: '1px solid rgba(251,191,36,0.3)' }}>
-                    <p style={{ color: '#fbbf24' }}>⚡ 创建/加入房间需调用GenLayer合约</p>
+                    <p style={{ color: '#fbbf24' }}>⚡ 创建/加入房间需支付 0.01 GEN</p>
                   </div>
                   
                   {availableRooms.length > 0 && (
@@ -459,8 +613,13 @@
                       <h3 style={{ color: '#c4b5fd', marginBottom: '1rem' }}>🚪 可加入的房间</h3>
                       {availableRooms.map(room => (
                         <div key={room.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                          <div><span style={{ fontSize: '1.3rem', marginRight: '0.5rem' }}>{STORY_ARCS[room.theme]?.icon}</span><span>{STORY_ARCS[room.theme]?.name}</span><span style={{ color: '#8b8b9e', marginLeft: '0.5rem' }}>({Object.keys(room.players || {}).length}/{CONFIG.ROOM_SIZE.max})</span></div>
-                          <button onClick={() => joinRoom(room.id)} style={{ padding: '0.5rem 1.5rem', background: 'linear-gradient(135deg, #a78bfa, #f472b6)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>加入</button>
+                          <div>
+                            <span style={{ fontSize: '1.3rem', marginRight: '0.5rem' }}>{STORY_ARCS[room.theme]?.icon}</span>
+                            <span>{STORY_ARCS[room.theme]?.name}</span>
+                            <span style={{ color: '#8b8b9e', marginLeft: '0.5rem' }}>({Object.keys(room.players || {}).length}/{CONFIG.ROOM_SIZE.max})</span>
+                            <span style={{ color: '#6b6b7e', marginLeft: '0.5rem', fontSize: '0.8rem' }}>{Math.floor(room.age / 1000)}秒前</span>
+                          </div>
+                          <button onClick={() => joinRoom(room.id)} disabled={loading} style={{ padding: '0.5rem 1.5rem', background: loading ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #a78bfa, #f472b6)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer' }}>{loading ? '处理中...' : '加入'}</button>
                         </div>
                       ))}
                     </div>
@@ -469,12 +628,18 @@
                   <h3 style={{ color: '#c4b5fd', marginBottom: '1rem', textAlign: 'center' }}>选择主题创建房间</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
                     {Object.entries(STORY_ARCS).map(([key, arc]) => (
-                      <button key={key} onClick={() => createRoom(key)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', cursor: 'pointer' }}>
+                      <button key={key} onClick={() => createRoom(key)} disabled={loading} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}>
                         <span style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{arc.icon}</span>
                         <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#fff' }}>{arc.name}</span>
                       </button>
                     ))}
                   </div>
+                  
+                  {loading && (
+                    <div style={{ textAlign: 'center', padding: '1rem', color: '#fbbf24' }}>
+                      ⏳ 正在处理GenLayer交易...
+                    </div>
+                  )}
                   
                   <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '14px', padding: '1.5rem' }}>
                     <h3 style={{ color: '#fbbf24', marginBottom: '1rem' }}>🏆 排行榜</h3>
@@ -494,23 +659,31 @@
         );
       }
 
-      // ROOM
+      // ========== 渲染: 房间 ==========
       if (view === 'room') {
+        const roomAge = roomData ? Math.floor((Date.now() - roomData.createdAt) / 1000) : 0;
+        
         return (
           <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)', padding: '2rem', color: '#e8e8e8' }}>
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <button onClick={resetGame} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#a5a5b8', cursor: 'pointer' }}>← 返回</button>
                 <div><span style={{ fontSize: '1.3rem', marginRight: '0.5rem' }}>{STORY_ARCS[roomData?.theme]?.icon}</span><span style={{ fontWeight: 600 }}>{STORY_ARCS[roomData?.theme]?.name}</span></div>
-                <span style={{ fontSize: '0.8rem', color: '#6b6b7e' }}>{roomId?.slice(-8)}</span>
+                <span style={{ fontSize: '0.8rem', color: '#6b6b7e' }}>{roomAge}秒</span>
               </div>
+              
+              {roomAge > 60 && (
+                <div style={{ textAlign: 'center', marginBottom: '1rem', padding: '0.5rem', background: 'rgba(251,191,36,0.1)', borderRadius: '8px', color: '#fbbf24', fontSize: '0.9rem' }}>
+                  ⏰ 超过1分钟，AI玩家将自动加入
+                </div>
+              )}
               
               <h3 style={{ color: '#8b8b9e', marginBottom: '1rem' }}>玩家 ({players.length}/{CONFIG.ROOM_SIZE.max})</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
                 {players.map(p => (
                   <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem', background: p.id === player.id ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${p.id === player.id ? 'rgba(167,139,250,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '10px', position: 'relative' }}>
                     <span style={{ fontSize: '2rem', marginBottom: '0.3rem' }}>{p.avatar}</span>
-                    <span style={{ fontSize: '0.85rem' }}>{p.name}</span>
+                    <span style={{ fontSize: '0.85rem', textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
                     {p.isAI && <span style={{ position: 'absolute', top: '0.3rem', left: '0.3rem', fontSize: '0.5rem', padding: '0.1rem 0.3rem', background: '#3b82f6', borderRadius: '3px' }}>AI</span>}
                     {p.id === roomData?.host && <span style={{ position: 'absolute', top: '0.3rem', right: '0.3rem', fontSize: '0.5rem', padding: '0.1rem 0.3rem', background: '#fbbf24', color: '#000', borderRadius: '3px' }}>房主</span>}
                   </div>
@@ -518,21 +691,27 @@
               </div>
               
               {player.id === roomData?.host && (
-                <button onClick={startGame} disabled={players.length < CONFIG.ROOM_SIZE.min} style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', fontWeight: 600, border: 'none', borderRadius: '10px', cursor: players.length >= CONFIG.ROOM_SIZE.min ? 'pointer' : 'not-allowed', background: players.length >= CONFIG.ROOM_SIZE.min ? 'linear-gradient(135deg, #a78bfa, #f472b6)' : 'rgba(255,255,255,0.1)', color: players.length >= CONFIG.ROOM_SIZE.min ? '#fff' : '#6b6b7e' }}>
-                  {players.length >= CONFIG.ROOM_SIZE.min ? '🎮 开始游戏' : `等待玩家 (${players.length}/${CONFIG.ROOM_SIZE.min})`}
-                </button>
+                <>
+                  <button onClick={startGame} disabled={players.length < CONFIG.ROOM_SIZE.min} style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', fontWeight: 600, border: 'none', borderRadius: '10px', cursor: players.length >= CONFIG.ROOM_SIZE.min ? 'pointer' : 'not-allowed', background: players.length >= CONFIG.ROOM_SIZE.min ? 'linear-gradient(135deg, #a78bfa, #f472b6)' : 'rgba(255,255,255,0.1)', color: players.length >= CONFIG.ROOM_SIZE.min ? '#fff' : '#6b6b7e', marginBottom: '1rem' }}>
+                    {players.length >= CONFIG.ROOM_SIZE.min ? '🎮 开始游戏' : `等待玩家 (${players.length}/${CONFIG.ROOM_SIZE.min})`}
+                  </button>
+                  <button onClick={addAIPlayers} style={{ width: '100%', padding: '0.8rem', fontSize: '0.95rem', border: '1px solid rgba(59,130,246,0.5)', borderRadius: '10px', background: 'transparent', color: '#3b82f6', cursor: 'pointer' }}>
+                    🤖 添加AI玩家
+                  </button>
+                </>
               )}
             </div>
           </div>
         );
       }
 
-      // GAME
+      // ========== 渲染: 游戏 ==========
       const currentOptions = getCurrentOptions();
       const votes = gameState?.votes || {};
       
       return (
         <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)', display: 'flex', flexDirection: 'column', color: '#e8e8e8' }}>
+          {/* 顶部状态栏 */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <div>
               <div style={{ fontSize: '0.85rem', color: '#8b8b9e' }}>第 {gameState?.round || 1}/{CONFIG.TOTAL_ROUNDS} 轮</div>
@@ -543,6 +722,7 @@
           </div>
 
           <div style={{ flex: 1, display: 'flex', gap: '1rem', padding: '1rem', overflow: 'hidden' }}>
+            {/* 左侧：故事面板 */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
               <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '1rem', overflowY: 'auto' }}>
                 <h3 style={{ color: '#c4b5fd', marginBottom: '1rem', fontSize: '0.95rem' }}>📜 {STORY_ARCS[roomData?.theme]?.name}</h3>
@@ -556,6 +736,7 @@
                 ))}
               </div>
 
+              {/* 选项面板 */}
               {(gameState?.phase === 'debate' || gameState?.phase === 'vote') && currentOptions.a && (
                 <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '10px', padding: '1rem' }}>
                   <h4 style={{ textAlign: 'center', marginBottom: '0.8rem' }}>⚔️ 本轮抉择</h4>
@@ -574,6 +755,7 @@
                 </div>
               )}
 
+              {/* 结束面板 */}
               {gameState?.phase === 'ended' && (
                 <div style={{ background: 'linear-gradient(145deg, rgba(251,191,36,0.1), rgba(167,139,250,0.1))', borderRadius: '10px', padding: '1.5rem', textAlign: 'center' }}>
                   <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#fbbf24' }}>🏆 编年史完成！</h2>
@@ -592,6 +774,7 @@
               )}
             </div>
 
+            {/* 右侧：聊天面板 */}
             <div style={{ width: '280px', display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', padding: '0.6rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 {players.map(p => (
