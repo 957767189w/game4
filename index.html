@@ -127,9 +127,14 @@
 
       useEffect(() => {
         try {
-          if (!firebase.apps.length) firebase.initializeApp(CONFIG.FIREBASE);
-          setDb(firebase.database());
-        } catch (err) { console.error('Firebase init error:', err); }
+          if (!firebase.apps.length) {
+            firebase.initializeApp(CONFIG.FIREBASE);
+          }
+          const database = firebase.database();
+          setDb(database);
+        } catch (err) { 
+          console.error('Firebase init error:', err); 
+        }
         try {
           const saved = localStorage.getItem('consensus_leaderboard');
           if (saved) setLeaderboard(JSON.parse(saved));
@@ -254,7 +259,12 @@
         console.log('【测试模式】跳过记录到GenLayer', gameData);
       };
 
-      const create  Room = async (theme) => {
+      const addMessage = async (type, text, sender = null, choice = null) => {
+        if (!db || !roomId) return;
+        await db.ref(`games/${roomId}/messages`).push().set({ type, text, sender, choice, timestamp: Date.now() });
+      };
+
+      const createRoom = async (theme) => {
         if (!db || !player.name) return;
        
         let address = walletAddress;
@@ -272,7 +282,15 @@
           host: address,
           status: 'waiting',
           createdAt: Date.now(),
-          players: { [address]: { id: address, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false } }
+          players: { 
+            [address]: { 
+              id: address, 
+              name: player.name, 
+              avatar: player.avatar, 
+              exp: player.exp, 
+              isAI: false 
+            } 
+          }
         });
         setRoomId(newRoomId);
         setView('room');
@@ -320,7 +338,7 @@
         if (!db || !roomId || players.length < CONFIG.ROOM_SIZE.min) return;
        
         await db.ref(`rooms/${roomId}`).update({ status: 'playing' });
- unset       
+       
         const theme = roomData?.theme || 'fantasy';
         const arc = STORY_ARCS[theme];
         const initScores = {};
@@ -354,7 +372,11 @@
       const handlePhaseEnd = async () => {
         if (!db || !roomId || !gameState) return;
         if (gameState.phase === 'debate') {
-          await db.ref(`games/${roomId}`).update({ phase: 'vote', timerEnd: Date.now() + CONFIG.VOTE_DURATION * 1000, votes: {} });
+          await db.ref(`games/${roomId}`).update({ 
+            phase: 'vote', 
+            timerEnd: Date.now() + CONFIG.VOTE_DURATION * 1000, 
+            votes: {} 
+          });
           addMessage('system', '🗳️ 投票阶段开始！');
           setMyVote(null);
           players.filter(p => p.isAI).forEach((ai, i) => {
@@ -394,343 +416,14 @@
         addMessage('system', `📜 选项 ${winner} 获胜！(${voteCount[winner]}票 vs ${voteCount[winner === 'A' ? 'B' : 'A']}票)`);
        
         if (round >= CONFIG.TOTAL_ROUNDS) {
-          await db.ref(`games/${roomId}`).update({ phase: 'ended', scores: newScores, path: newPath, story: newStory, timerEnd: null });
+          await db.ref(`games/${roomId}`).update({ 
+            phase: 'ended', 
+            scores: newScores, 
+            path: newPath, 
+            story: newStory, 
+            timerEnd: null 
+          });
           addMessage('system', '🏆 编年史完成！');
          
           const topPlayer = Object.entries(newScores).sort((a, b) => (b[1].influence + b[1].debates) - (a[1].influence + a[1].debates))[0];
-          await recordGameToGenLayer({
-            theme: roomData?.theme,
-            winner: topPlayer?.[0],
-            path: newPath,
-            scores: newScores
-          });
-         
-          const myScore = newScores[player.id] || { influence: 0, debates: 0 };
-          const totalScore = (myScore.influence || 0) + (myScore.debates || 0);
-          if (player.name && totalScore > 0) {
-            const newLeaderboard = [...leaderboard, { id: Date.now(), name: player.name, avatar: player.avatar, score: totalScore, theme: roomData?.theme, date: new Date().toLocaleDateString() }].sort((a, b) => b.score - a.score).slice(0, 50);
-            setLeaderboard(newLeaderboard);
-            try { localStorage.setItem('consensus_leaderboard', JSON.stringify(newLeaderboard)); } catch {}
-          }
-        } else {
-          const nextRound = round + 1;
-          const nextContext = getContext(nextRound, newPath);
-          await db.ref(`games/${roomId}`).update({
-            round: nextRound,
-            phase: 'debate',
-            scores: newScores,
-            path: newPath,
-            story: [...newStory, { text: nextContext, type: 'context', round: nextRound }],
-            timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000,
-            votes: {}
-          });
-          addMessage('system', `📖 第 ${nextRound}/${CONFIG.TOTAL_ROUNDS} 轮 - 辩论阶段`);
-          setTimeout(() => simulateAIDebate(), 3000);
-        }
-      };
-
-      const getContext = (roundNum, path) => {
-        const theme = roomData?.theme || 'fantasy';
-        const roundData = STORY_ARCS[theme]?.rounds[roundNum - 1];
-        if (!roundData) return '';
-        if (roundNum > 1 && path.length > 0) {
-          const pathKey = path.slice(-2).join('');
-          if (roundData[`context${pathKey}`]) return roundData[`context${pathKey}`];
-          if (roundData[`context${path[path.length - 1]}`]) return roundData[`context${path[path.length - 1]}`];
-        }
-        return roundData.context || '';
-      };
-
-      const getOption = (roundNum, choice) => {
-        const roundData = STORY_ARCS[roomData?.theme || 'fantasy']?.rounds[roundNum - 1];
-        return choice === 'A' ? roundData?.a : roundData?.b;
-      };
-
-      const getConsequence = (roundNum, choice, path) => {
-        const roundData = STORY_ARCS[roomData?.theme || 'fantasy']?.rounds[roundNum - 1];
-        if (!roundData) return '';
-        const option = choice === 'A' ? roundData.a : roundData.b;
-        if (path.length > 0 && option[`consequenceFrom${path[path.length - 1]}`]) return option[`consequenceFrom${path[path.length - 1]}`];
-        if (roundNum === CONFIG.TOTAL_ROUNDS && option.ending) return option.ending;
-        return option.consequence || '';
-      };
-
-      const getCurrentOptions = () => {
-        if (!gameState || !roomData) return { a: null, b: null };
-        const roundData = STORY_ARCS[roomData.theme || 'fantasy']?.rounds[(gameState.round || 1) - 1];
-        return { a: roundData?.a, b: roundData?.b };
-      };
-
-      const addMessage = async (type, text, sender = null, choice = null) => {
-        if (!db || !roomId) return;
-        await db.ref(`games/${roomId}/messages`).push().set({ type, text, sender, choice, timestamp: Date.now() });
-      };
-
-      const submitDebate = async () => {
-        if (!debateInput.trim() || gameState?.phase !== 'debate') return;
-        const choice = debateInput.includes('A') ? 'A' : debateInput.includes('B') ? 'B' : null;
-        await addMessage('chat', debateInput, { id: player.id, name: player.name, avatar: player.avatar }, choice);
-        setDebateInput('');
-        if (gameState?.scores?.[player.id]) await db.ref(`games/${roomId}/scores/${player.id}/debates`).set((gameState.scores[player.id].debates || 0) + 10);
-      };
-
-      const submitVote = async (choice) => {
-        if (gameState?.phase !== 'vote' || myVote) return;
-        setMyVote(choice);
-        await db.ref(`games/${roomId`/votes/${player.id}`).set(choice);
-      };
-
-      const resetGame = () => {
-        if (timerRef.current) clearInterval(timerRef.current);
-        if (roomCheckRef.current) clearInterval(roomCheckRef.current);
-        setRoomId(null); setRoomData(null); setGameState(null); setPlayers([]); setMessages([]); setMyVote(null); setView('home');
-      };
-
-      const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
-      const shortAddress = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '';
-
-      if (view === 'home') {
-        return (
-          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)', padding: '2rem', color: '#e8e8e8' }}>
-            <div style={{ maxWidth: '900px', margin: '0  auto' }}>
-              <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                <div style={{ fontSize: '4rem', marginBottom: '0.5rem' }}>📜</div>
-                <h1 style={{ fontSize: '2.5rem', fontWeight: 800, background: 'linear-gradient(135deg, #a78bfa, #f472b6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>共识编年史</h1>
-                <p style={{ color: '#8b8b9e', letterSpacing: '0.2em' }}>CONSENSUS CHRONICLE</p>
-              </div>
-             
-              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                {walletAddress ? (
-                  <span style={{ padding: '0.5rem 1rem', background: 'rgba(74,222,128,0.2)', borderRadius: '20px', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80' }}>🔗 {shortAddress(walletAddress)}</span>
-                ) : (
-                  <button onClick={connectWallet} disabled={walletConnecting} style={{ padding: '0.8rem 2rem', background: 'linear-gradient(135deg, #f472b6, #a78bfa)', border: 'none', borderRadius: '25px', color: '#fff', fontSize: '1rem', fontWeight: 600, cursor: 'pointer' }}>{walletConnecting ? '连接中...' : '🦊 连接MetaMask'}</button>
-                )}
-              </div>
-             
-              {!player.name ? (
-                <div style={{ maxWidth: '350px', margin: '0 auto' }}>
-                  <input type="text" placeholder="输入你的名字..." style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', background: 'rgba(255,255,255,0.05)', border: '2px solid rgba(167,139,250,0.3)', borderRadius: '12px', color: '#fff', outline: 'none' }} onKeyDown={(e) => e.key === 'Enter' && e.target.value.trim() && setPlayer(p => ({ ...p, name: e.target.value.trim() }))} />
-                  <p style={{ marginTop: '0.5rem', color: '#6b6b7e', fontSize: '0.9rem', textAlign: 'center' }}>按 Enter 确认</p>
-                </div>
-              ) : (
-                <>
-                  <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                    <span style={{ padding: '0.8rem 1.5rem', background: 'rgba(167,139,250,0.1)', borderRadius: '30px', border: '1px solid rgba(167,139,250,0.3)' }}>
-                      <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{player.avatar}</span>
-                      <span style={{ fontWeight: 600 }}>{player.name}</span>
-                      <span style={{ color: '#fbbf24', marginLeft: '1rem' }}>⭐ {player.exp}</span>
-                    </span>
-                  </div>
-                 
-                  <div style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '0.8rem', background: 'rgba(251,191,36,0.1)', borderRadius: '10px', border: '1px solid rgba(251,191,36,0.3)' }}>
-                    <p style={{ color: '#fbbf24' }}>⚡ 创建/加入房间需支付 0.01 GEN（测试模式已跳过）</p>
-                  </div>
-                 
-                  {availableRooms.length > 0 && (
-                    <div style={{ marginBottom: '2rem' }}>
-                      <h3 style={{ color: '#c4b5fd', marginBottom: '1rem' }}>🚪 可加入的房间</h3>
-                      {availableRooms.map(room => (
-                        <div key={room.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                          <div>
-                            <span style={{ fontSize: '1.3rem', marginRight: '0.5rem' }}>{STORY_ARCS[room.theme]?.icon}</span>
-                            <span>{STORY_ARCS[room.theme]?.name}</span>
-                            <span style={{ color: '#8b8b9e', marginLeft: '0.5rem' }}>({Object.keys(room.players || {}).length}/{CONFIG.ROOM_SIZE.max})</span>
-                            <span style={{ color: '#6b6b7e', marginLeft: '0.5rem', fontSize: '0.8rem' }}>{Math.floor(room.age / 1000)}秒前</span>
-                          </div>
-                          <button onClick={() => joinRoom(room.id)} style={{ padding: '0.5rem 1.5rem', background: 'linear-gradient(135deg, #a78bfa, #f472b6)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>加入</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                 
-                  <h3 style={{ color: '#c4b5fd', marginBottom: '1rem', textAlign: 'center' }}>选择主题创建房间</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                    {Object.entries(STORY_ARCS).map(([key, arc]) => (
-                      <button key={key} onClick={() => createRoom(key)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', cursor: 'pointer' }}>
-                        <span style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{arc.icon}</span>
-                        <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#fff' }}>{arc.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                 
-                  <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '14px', padding: '1.5rem' }}>
-                    <h3 style={{ color: '#fbbf24', marginBottom: '1rem' }}>🏆 排行榜</h3>
-                    {leaderboard.length === 0 ? <p style={{ color: '#6b6b7e', textAlign: 'center' }}>暂无记录</p> : leaderboard.slice(0, 5).map((e, i) => (
-                      <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.6rem', background: i === 0 ? 'rgba(251,191,36,0.1)' : 'transparent', borderRadius: '8px', marginBottom: '0.3rem' }}>
-                        <span style={{ fontWeight: 700, color: i < 3 ? '#fbbf24' : '#6b6b7e', width: '1.5rem' }}>#{i + 1}</span>
-                        <span>{e.avatar}</span>
-                        <span style={{ flex: 1, color: '#fff' }}>{e.name}</span>
-                        <span style={{ color: '#a78bfa', fontWeight: 600 }}>{e.score}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        );
-      }
-
-      if (view === 'room') {
-        const roomAge = roomData ? Math.floor((Date.now() - roomData.createdAt) / 1000) : 0;
-       
-        return (
-          <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)', padding: '2rem', color: '#e8e8e8' }}>
-            <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <button onClick={resetGame} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#a5a5b8', cursor: 'pointer' }}>← 返回</button>
-                <div><span style={{ fontSize: '1.3rem', marginRight: '0.5rem' }}>{STORY_ARCS[roomData?.theme]?.icon}</span><span style={{ fontWeight: 600 }}>{STORY_ARCS[roomData?.theme]?.name}</span></div>
-                <span style={{ fontSize: '0.8rem', color: '#6b6b7e' }}>{roomAge}秒</span>
-              </div>
-             
-              {roomAge > 60 && (
-                <div style={{ textAlign: 'center', marginBottom: '1rem', padding: '0.5rem', background: 'rgba(251,191,36,0.1)', borderRadius: '8px', color: '#fbbf24', fontSize: '0.9rem' }}>
-                  ⏰ 超过1分钟，AI玩家将自动加入
-                </div>
-              )}
-             
-              <h3 style={{ color: '#8b8b9e', marginBottom: '1rem' }}>玩家 ({players.length}/{CONFIG.ROOM_SIZE.max})</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-                {players.map(p => (
-                  <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem', background: p.id === player.id ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${p.id === player.id ? 'rgba(167,139,250,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '10px', position: 'relative' }}>
-                    <span style={{ fontSize: '2rem', marginBottom: '0.3rem' }}>{p.avatar}</span>
-                    <span style={{ fontSize: '0.85rem', textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                    {p.isAI && <span style={{ position: 'absolute', top: '0.3rem', left: '0.3rem', fontSize: '0.5rem', padding: '0.1rem 0.3rem', background: '#3b82f6', borderRadius: '3px' }}>AI</span>}
-                    {p.id === roomData?.host && <span style={{ position: 'absolute', top: '0.3rem', right: '0.3rem', fontSize: '0.5rem', padding: '0.1rem 0.3rem', background: '#fbbf24', color: '#000', borderRadius: '3px' }}>房主</span>}
-                  </div>
-                ))}
-              </div>
-             
-              {player.id === roomData?.host && (
-                <>
-                  <button onClick={startGame} disabled={players.length < CONFIG.ROOM_SIZE.min} style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', fontWeight: 600, border: 'none', borderRadius: '10px', cursor: players.length >= CONFIG.ROOM_SIZE.min ? 'pointer' : 'not-allowed', background: players.length >= CONFIG.ROOM_SIZE.min ? 'linear-gradient(135deg, #a78bfa, #f472b6)' : 'rgba(255,255,255,0.1)', color: players.length >= CONFIG.ROOM_SIZE.min ? '#fff' : '#6b6b7e', marginBottom: '1rem' }}>
-                    {players.length >= CONFIG.ROOM_SIZE.min ? '🎮 开始游戏' : `等待玩家 (${players.length}/${CONFIG.ROOM_SIZE.min})`}
-                  </button>
-                  <button onClick={addAIPlayers} style={{ width: '100%', padding: '0.8rem', fontSize: '0.95rem', border: '1px solid rgba(59,130,246,0.5)', borderRadius: '10px', background: 'transparent', color: '#3b82f6', cursor: 'pointer' }}>
-                    🤖 添加AI玩家
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        );
-      }
-
-      const currentOptions = getCurrentOptions();
-      const votes = gameState?.votes || {};
-     
-      return (
-        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)', display: 'flex', flexDirection: 'column', color: '#e8e8e8' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-            <div>
-              <div style={{ fontSize: '0.85rem', color: '#8b8b9e' }}>第 {gameState?.round || 1}/{CONFIG.TOTAL_ROUNDS} 轮</div>
-              <div style={{ fontWeight: 600 }}>{gameState?.phase === 'debate' && '💬 辩论中'}{gameState?.phase === 'vote' && '🗳️ 投票中'}{gameState?.phase === 'ended' && '🏆 已结束'}</div>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 700, fontFamily: 'monospace', color: timer <= 10 && gameState?.phase !== 'ended' ? '#f87171' : '#a78bfa' }}>{gameState?.phase === 'ended' ? '--:--' : formatTime(timer)}</div>
-            <div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem', color: '#8b8b9e' }}>积分</div><div style={{ fontSize: '1.3rem', fontWeight: 700, color: '#fbbf24' }}>{(gameState?.scores?.[player.id]?.influence || 0) + (gameState?.scores?.[player.id]?.debates || 0)}</div></div>
-          </div>
-          <div style={{ flex: 1, display: 'flex', gap: '1rem', padding: '1rem', overflow: 'hidden' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
-              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '1rem', overflowY: 'auto' }}>
-                <h3 style={{ color: '#c4b5fd', marginBottom: '1rem', fontSize: '0.95rem' }}>📜 {STORY_ARCS[roomData?.theme]?.name}</h3>
-                {(gameState?.story || []).map((s, i) => (
-                  <div key={i} style={{ padding: '0.5rem 0', borderBottom: i < (gameState?.story?.length || 0) - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-                    {s.type === 'opening' && <p style={{ color: '#c4b5fd', fontStyle: 'italic', lineHeight: 1.6 }}>{s.text}</p>}
-                    {s.type === 'context' && <p style={{ color: '#fbbf24', lineHeight: 1.6 }}><span style={{ background: 'rgba(251,191,36,0.2)', padding: '0.15rem 0.4rem', borderRadius: '4px', marginRight: '0.4rem', fontSize: '0.8rem' }}>第{s.round}轮</span>{s.text}</p>}
-                    {s.type === 'choice' && <p style={{ color: '#4ade80', lineHeight: 1.6 }}>{s.winner === 'A' ? '🅰️' : '🅱️'} {s.text}</p>}
-                    {s.type === 'consequence' && <p style={{ color: '#a5a5b8', lineHeight: 1.6, paddingLeft: '1rem', borderLeft: '2px solid rgba(167,139,250,0.3)' }}>{s.text}</p>}
-                  </div>
-                ))}
-              </div>
-              {(gameState?.phase === 'debate' || gameState?.phase === 'vote') && currentOptions.a && (
-                <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '10px', padding: '1rem' }}>
-                  <h4 style={{ textAlign: 'center', marginBottom: '0.8rem' }}>⚔️ 本轮抉择</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    {[{ key: 'A', opt: currentOptions.a, color: '#ef4444' }, { key: 'B', opt: currentOptions.b, color: '#3b82f6' }].map(({ key, opt, color }) => (
-                      <div key={key} onClick={() => gameState?.phase === 'vote' && submitVote(key)} style={{ padding: '1rem', borderRadius: '8px', border: `2px solid ${myVote === key ? color : `${color}40`}`, background: `${color}15`, cursor: gameState?.phase === 'vote' ? 'pointer' : 'default' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                          <span style={{ fontWeight: 700, color }}>选项 {key}</span>
-                          <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', color: '#a5a5b8' }}>{opt?.tag}</span>
-                        </div>
-                        <p style={{ lineHeight: 1.4, fontSize: '0.85rem' }}>{opt?.text}</p>
-                        {gameState?.phase === 'vote' && <div style={{ marginTop: '0.6rem', textAlign: 'center', fontSize: '1.1rem', fontWeight: 600, color: '#fbbf24' }}>{Object.values(votes).filter(v => v === key).length} 票</div>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {gameState?.phase === 'ended' && (
-                <div style={{ background: 'linear-gradient(145deg, rgba(251,191,36,0.1), rgba(167,139,250,0.1))', borderRadius: '10px', padding: '1.5rem', textAlign: 'center' }}>
-                  <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#fbbf24' }}>🏆 编年史完成！</h2>
-                  <div style={{ maxWidth: '350px', margin: '0 auto 1rem' }}>
-                    {Object.entries(gameState?.scores || {}).map(([id, score]) => ({ player: players.find(p => p.id === id), total: (score.influence || 0) + (score.debates || 0) })).sort((a, b) => b.total - a.total).map((rank, i) => (
-                      <div key={rank.player?.id || i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem', marginBottom: '0.3rem', background: i === 0 ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
-                        <span style={{ fontWeight: 700, color: i < 3 ? '#fbbf24' : '#6b6b7e' }}>#{i + 1}</span>
-                        <span>{rank.player?.avatar}</span>
-                        <span style={{ flex: 1 }}>{rank.player?.name}</span>
-                        <span style={{ fontWeight: 600, color: '#a78bfa' }}>{rank.total}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <button onClick={resetGame} style={{ padding: '0.6rem 1.5rem', background: 'linear-gradient(135deg, #a78bfa, #f472b6)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>返回大厅</button>
-                </div>
-              )}
-            </div>
-            <div style={{ width: '280px', display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', padding: '0.6rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                {players.map(p => (
-                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.2rem 0.5rem', background: votes[p.id] ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.05)', borderRadius: '12px', fontSize: '0.75rem' }}>
-                    <span>{p.avatar}</span>
-                    <span style={{ maxWidth: '50px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                    {votes[p.id] && <span style={{ color: '#4ade80', fontWeight: 700 }}>{votes[p.id]}</span>}
-                  </div>
-                ))}
-              </div>
-             
-              <div style={{ flex: 1, overflowY: 'auto', padding: '0.6rem' }}>
-                {messages.map((msg, i) => (
-                  <div key={i} style={{ marginBottom: '0.5rem', fontSize: '0.8rem' }}>
-                    {msg.type === 'system' ? (
-                      <div style={{ color: '#a78bfa', fontStyle: 'italic' }}>{msg.text}</div>
-                    ) : (
-                      <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                          <span style={{ color: '#fbbf24', fontWeight: 600 }}>{msg.sender?.avatar} {msg.sender?.name}</span>
-                          {msg.choice && <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', background: msg.choice === 'A' ? 'rgba(239,68,68,0.3)' : 'rgba(59,130,246,0.3)', borderRadius: '3px' }}>{msg.choice}</span>}
-                        </div>
-                        <div>{msg.text}</div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
-             
-              {gameState?.phase === 'debate' && (
-                <div style={{ padding: '0.6rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.4rem' }}>
-                    <input type="text" value={debateInput} onChange={(e) => setDebateInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitDebate()} placeholder="输入观点..." style={{ flex: 1, padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0 0.1)', borderRadius: '6px', color: '#fff', fontSize: '0.8rem', outline: 'none' }} />
-                    <button onClick={submitDebate} style={{ padding: '0.5rem 0.8rem', background: 'linear-gradient(135deg, #a78bfa, #f472b6)', border: 'none', borderRadius: '6px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>发送</button>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.3rem' }}>
-                    <button onClick={() => setDebateInput('我支持选项A，因为')} style={{ padding: '0.2rem 0.5rem', background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', color: '#ef4444', fontSize: '0.7rem', cursor: 'pointer' }}>🅰️</button>
-                    <button onClick={() => setDebateInput('我支持选项B，因为')} style={{ padding: '0.2rem 0.5rem', background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '10px', color: '#3b82f6', fontSize: '0.7rem', cursor: 'pointer' }}>🅱️</button>
-                  </div>
-                </div>
-              )}
-             
-              {gameState?.phase === 'vote' && !myVote && (
-                <div style={{ padding: '0.8rem', textAlign: 'center', background: 'rgba(167,139,250,0.1)' }}>
-                  <p style={{ color: '#fbbf24', fontWeight: 600, fontSize: '0.9rem' }}>⏰ 请在左侧投票！</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-  </script>
-</body>
-</html>
+          await recordGameTo
