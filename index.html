@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>共识编年史 | Consensus Chronicle</title>
+  <title>Consensus Chronicle</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -24,8 +24,8 @@
 
     const CONFIG = {
       ROOM_SIZE: { min: 2, max: 8 },
-      DEBATE_DURATION: 90,
-      VOTE_DURATION: 30,
+      DEBATE_DURATION: 60,
+      VOTE_DURATION: 20,
       TOTAL_ROUNDS: 5,
       ROOM_TIMEOUT_AI: 60000,
       ROOM_TIMEOUT_CLOSE: 120000,
@@ -41,34 +41,34 @@
     const C = { bg: '#0a0a0a', bgLight: '#111', bgCard: '#1a1a1a', gold: '#d4a574', goldLight: '#e8c9a0', goldDark: '#a67c52', accent: '#fbbf24', text: '#e8e8e8', muted: '#888', border: 'rgba(212,165,116,0.3)', success: '#4ade80', error: '#ef4444', optA: '#ef4444', optB: '#3b82f6' };
 
     const THEMES = {
-      fantasy: { name: '奇幻冒险', icon: '🏰', opening: '古老的预言终于应验——沉睡千年的黑龙苏醒了。王国危在旦夕，国王紧急召集了各地英雄商议对策...', rounds: [{ context: '黑龙的威胁迫在眉睫，王国必须做出第一个关键决定。', a: { text: '立即集结军队，主动出击龙巢。', tag: '激进' }, b: { text: '派遣使者寻求精灵族的帮助。', tag: '稳妥' } }, { context: '局势进一步发展，新的抉择摆在面前。', a: { text: '采取更激进的策略，不惜一切代价。', tag: '果断' }, b: { text: '寻求更多盟友，建立统一战线。', tag: '谨慎' } }, { context: '关键时刻到来，每个决定都将影响最终结局。', a: { text: '使用禁忌之力，牺牲小我完成大我。', tag: '牺牲' }, b: { text: '保存实力，等待更好的时机。', tag: '忍耐' } }, { context: '战局进入白热化阶段。', a: { text: '发起总攻，毕其功于一役。', tag: '决战' }, b: { text: '尝试谈判，寻找和平解决方案。', tag: '和平' } }, { context: '最终的抉择时刻。', a: { text: '不惜代价取得胜利。', tag: '胜利' }, b: { text: '与敌人达成共识，开创新时代。', tag: '共存' } }], endings: { default: '经过艰难抉择，英雄们书写了属于自己的传奇。无论结果如何，这段故事都将永远流传。' } },
-      scifi: { name: '科幻未来', icon: '🚀', opening: '2157年，火星殖民地收到了来自深空的神秘信号——地球将在100天后被小行星撞击...', rounds: [{ context: '消息公布后，殖民地陷入恐慌。', a: { text: '启动方舟计划，抽签决定谁能逃生。', tag: '公平' }, b: { text: '集中资源研究信号来源。', tag: '探索' } }, { context: '新的情况出现，需要进一步决策。', a: { text: '优先保护核心人员和技术。', tag: '精英' }, b: { text: '坚持人人平等的原则。', tag: '平等' } }, { context: '资源变得更加紧张。', a: { text: '采取配给制度，严格管控。', tag: '管控' }, b: { text: '保持自由分配。', tag: '自由' } }, { context: '外部联系出现转机。', a: { text: '接受外星文明的帮助条件。', tag: '合作' }, b: { text: '坚持人类独立自主。', tag: '独立' } }, { context: '最后的关头。', a: { text: '放手一搏，尝试改变小行星轨道。', tag: '冒险' }, b: { text: '接受命运，专注于文明延续。', tag: '接受' } }], endings: { default: '在命运的十字路口，人类做出了自己的选择，无论结果如何，这都是属于人类自己的决定。' } },
-      mystery: { name: '悬疑推理', icon: '🔍', opening: '暴风雨之夜，富豪陈老爷在书房被毒杀。大门从内反锁，五个嫌疑人各怀心思...', rounds: [{ context: '作为侦探，你必须开始调查。', a: { text: '搜查死者的书房，寻找物证。', tag: '物证' }, b: { text: '分别询问在场每个人。', tag: '询问' } }, { context: '调查有了新发现。', a: { text: '深入调查遗产问题。', tag: '金钱' }, b: { text: '调查神秘访客的身份。', tag: '身份' } }, { context: '案情变得复杂。', a: { text: '验证嫌疑人的不在场证明。', tag: '验证' }, b: { text: '调查陈年旧案的关联。', tag: '旧案' } }, { context: '真相逐渐浮出水面。', a: { text: '直接对质主要嫌疑人。', tag: '对质' }, b: { text: '重新检验关键物证。', tag: '物证' } }, { context: '最终的审判时刻。', a: { text: '公开所有真相，让法律裁决。', tag: '公正' }, b: { text: '给予相关人选择的机会。', tag: '人情' } }], endings: { default: '这起案件以出人意料的方式落幕，成为了人们茶余饭后谈论的传奇故事。' } },
-      political: { name: '宫廷权谋', icon: '👑', opening: '大齐王朝，老皇帝驾崩。遗诏称皇位由"最能代表民心者"继承，三位皇子各怀心思...', rounds: [{ context: '作为内阁首辅，你必须维持局面。', a: { text: '支持太子按传统继位。', tag: '传统' }, b: { text: '提议公开选拔，让贤者居之。', tag: '革新' } }, { context: '各方势力开始角力。', a: { text: '联合军方稳定局势。', tag: '军权' }, b: { text: '争取文官集团支持。', tag: '文治' } }, { context: '外部势力开始介入。', a: { text: '对外强硬，显示国威。', tag: '强硬' }, b: { text: '以和为贵，避免冲突。', tag: '和平' } }, { context: '内部矛盾激化。', a: { text: '果断清除异己。', tag: '果断' }, b: { text: '寻求妥协，平衡各方。', tag: '平衡' } }, { context: '最终的抉择。', a: { text: '建立新的权力架构。', tag: '改革' }, b: { text: '维护传统秩序。', tag: '守成' } }], endings: { default: '在权力的游戏中，每个选择都影响着无数人的命运。这就是历史的重量。' } }
+      fantasy: { name: 'Fantasy Quest', icon: '🏰', opening: 'The ancient prophecy has come true - the Black Dragon awakens after a thousand years. The kingdom is in peril, and the King summons heroes from across the land...', rounds: [{ context: 'The dragon threat is imminent. The kingdom must make its first crucial decision.', a: { text: 'Assemble the army and strike the dragon lair before it fully awakens.', tag: 'Aggressive' }, b: { text: 'Send envoys to seek help from the Elven kingdom who sealed the dragon before.', tag: 'Diplomatic' } }, { context: 'The situation develops further, new choices emerge.', a: { text: 'Take a more aggressive strategy, spare no cost.', tag: 'Bold' }, b: { text: 'Seek more allies, build a united front.', tag: 'Cautious' } }, { context: 'A critical moment arrives, every decision affects the final outcome.', a: { text: 'Use forbidden magic, sacrifice the few to save the many.', tag: 'Sacrifice' }, b: { text: 'Preserve strength, wait for a better opportunity.', tag: 'Patient' } }, { context: 'The battle reaches its climax.', a: { text: 'Launch the final assault, all or nothing.', tag: 'Decisive' }, b: { text: 'Attempt negotiation, seek a peaceful solution.', tag: 'Peaceful' } }, { context: 'The moment of final choice.', a: { text: 'Victory at any cost.', tag: 'Victory' }, b: { text: 'Reach consensus with the enemy, start a new era.', tag: 'Coexist' } }], endings: { default: 'Through difficult choices, the heroes wrote their own legend. Whatever the outcome, this story will be passed down forever.' } },
+      scifi: { name: 'Sci-Fi Future', icon: '🚀', opening: 'Year 2157, Mars colony "New Hope" receives a mysterious signal from deep space - Earth will be hit by an asteroid in 100 days...', rounds: [{ context: 'After the news breaks, the colony falls into panic.', a: { text: 'Launch the Ark Plan, lottery decides who escapes.', tag: 'Fair' }, b: { text: 'Focus resources on researching the signal source.', tag: 'Explore' } }, { context: 'New situations emerge, further decisions needed.', a: { text: 'Prioritize protecting key personnel and technology.', tag: 'Elite' }, b: { text: 'Insist on equality for all.', tag: 'Equal' } }, { context: 'Resources become more scarce.', a: { text: 'Implement rationing, strict control.', tag: 'Control' }, b: { text: 'Maintain free distribution.', tag: 'Freedom' } }, { context: 'External contact shows promise.', a: { text: 'Accept alien civilization help conditions.', tag: 'Cooperate' }, b: { text: 'Insist on human independence.', tag: 'Independent' } }, { context: 'The final moment.', a: { text: 'Risk everything, try to change the asteroid trajectory.', tag: 'Risk' }, b: { text: 'Accept fate, focus on civilization continuation.', tag: 'Accept' } }], endings: { default: 'At the crossroads of destiny, humanity made its own choice. Whatever the result, it was humanity\'s own decision.' } },
+      mystery: { name: 'Mystery Detective', icon: '🔍', opening: 'On a stormy night, wealthy Mr. Chen is poisoned in his study. The door locked from inside, five suspects each hiding secrets...', rounds: [{ context: 'As the detective, you must begin investigating.', a: { text: 'Search the victim\'s study for evidence.', tag: 'Evidence' }, b: { text: 'Interview each person present.', tag: 'Interview' } }, { context: 'Investigation reveals new findings.', a: { text: 'Deep dive into the inheritance issue.', tag: 'Money' }, b: { text: 'Investigate the mysterious visitor\'s identity.', tag: 'Identity' } }, { context: 'The case becomes complex.', a: { text: 'Verify suspects\' alibis.', tag: 'Verify' }, b: { text: 'Investigate connection to old cases.', tag: 'History' } }, { context: 'Truth begins to surface.', a: { text: 'Directly confront the main suspect.', tag: 'Confront' }, b: { text: 'Re-examine key evidence.', tag: 'Evidence' } }, { context: 'Final judgment moment.', a: { text: 'Reveal all truth, let law decide.', tag: 'Justice' }, b: { text: 'Give involved parties a choice.', tag: 'Mercy' } }], endings: { default: 'This case concludes in an unexpected way, becoming a legendary tale people discuss.' } },
+      political: { name: 'Palace Intrigue', icon: '👑', opening: 'The Qi Dynasty, year 30 of Yong\'an. The old Emperor has passed. The edict states the throne goes to "whoever best represents the people\'s will". Three princes each scheme...', rounds: [{ context: 'As the Cabinet Chief, you must maintain order.', a: { text: 'Support the Crown Prince by tradition.', tag: 'Traditional' }, b: { text: 'Propose open selection, let the worthy rule.', tag: 'Reform' } }, { context: 'Various factions begin to struggle.', a: { text: 'Ally with the military to stabilize.', tag: 'Military' }, b: { text: 'Win over the civil official faction.', tag: 'Civil' } }, { context: 'External forces begin to intervene.', a: { text: 'Be firm externally, show national might.', tag: 'Strong' }, b: { text: 'Prioritize peace, avoid conflict.', tag: 'Peaceful' } }, { context: 'Internal conflicts intensify.', a: { text: 'Decisively eliminate opposition.', tag: 'Decisive' }, b: { text: 'Seek compromise, balance all sides.', tag: 'Balance' } }, { context: 'The final choice.', a: { text: 'Establish a new power structure.', tag: 'Reform' }, b: { text: 'Maintain traditional order.', tag: 'Preserve' } }], endings: { default: 'In the game of power, every choice affects countless lives. This is the weight of history.' } }
     };
 
     const AI_PLAYERS = [
-      { id: 'ai_1', name: '智者·艾丝', avatar: '🧙‍♀️', exp: 1200, isAI: true, style: 'analytical' },
-      { id: 'ai_2', name: '勇者·凯恩', avatar: '⚔️', exp: 1100, isAI: true, style: 'bold' },
-      { id: 'ai_3', name: '学者·诺亚', avatar: '📚', exp: 1300, isAI: true, style: 'cautious' }
+      { id: 'ai_1', name: 'Sage Iris', avatar: '🧙‍♀️', exp: 0, isAI: true, style: 'analytical' },
+      { id: 'ai_2', name: 'Knight Kane', avatar: '⚔️', exp: 0, isAI: true, style: 'bold' },
+      { id: 'ai_3', name: 'Scholar Noah', avatar: '📚', exp: 0, isAI: true, style: 'cautious' }
     ];
 
     const genAIDebate = (style) => {
-      const d = { analytical: { A: ['逻辑上A更优'], B: ['分析后B更好'] }, bold: { A: ['果断选A！'], B: ['勇敢选B！'] }, cautious: { A: ['A或许可行'], B: ['B更安全'] } };
+      const d = { analytical: { A: ['Logically, A has higher success rate', 'Data suggests A is optimal'], B: ['After analysis, B yields better long-term results', 'Considering all factors, B is wiser'] }, bold: { A: ['Fortune favors the bold! A is the hero\'s choice!', 'Strike now! Support A!'], B: ['True courage lies in B!', 'Smart and brave choose B!'] }, cautious: { A: ['Though risky, A might be necessary', 'Lesser of two evils, support A'], B: ['To be safe, B is better', 'Steady wins the race, choose B'] } };
       const c = Math.random() > 0.5 ? 'A' : 'B';
-      return { text: (d[style]?.[c] || d.analytical[c])[0], choice: c };
+      return { text: (d[style]?.[c] || d.analytical[c])[Math.floor(Math.random() * 2)] || d.analytical[c][0], choice: c };
     };
 
     function App() {
       const [db, setDb] = useState(null);
       const [wallet, setWallet] = useState(null);
       const [connecting, setConnecting] = useState(false);
-      const [showConfirm, setShowConfirm] = useState(false);
       const [showRules, setShowRules] = useState(false);
       const [tab, setTab] = useState('game');
       const [view, setView] = useState('home');
-      const [player, setPlayer] = useState({ id: '', name: '', avatar: '🎮', exp: 1000 });
+      const [player, setPlayer] = useState({ id: '', name: '', avatar: '🎮', exp: 0 });
       const [roomId, setRoomId] = useState(null);
+      const [myRoomId, setMyRoomId] = useState(null);
       const [roomData, setRoomData] = useState(null);
       const [players, setPlayers] = useState([]);
       const [game, setGame] = useState(null);
@@ -89,15 +89,35 @@
           if (!firebase.apps.length) firebase.initializeApp(CONFIG.FIREBASE);
           const database = firebase.database();
           setDb(database);
-          database.ref('leaderboard').orderByChild('score').limitToLast(100).on('value', s => { if (s.val()) setLb(Object.values(s.val()).sort((a,b)=>b.score-a.score).slice(0,50)); });
-          database.ref('gameHistory').orderByChild('timestamp').limitToLast(50).on('value', s => { if (s.val()) setHist(Object.values(s.val()).sort((a,b)=>b.timestamp-a.timestamp)); });
+          // Leaderboard: group by wallet, sort by exp descending
+          database.ref('players').orderByChild('exp').on('value', s => {
+            if (s.val()) {
+              const list = Object.entries(s.val()).map(([id, p]) => ({ ...p, id })).filter(p => p.exp > 0).sort((a, b) => b.exp - a.exp);
+              setLb(list.slice(0, 50));
+            }
+          });
         } catch (e) { console.error(e); }
         const sw = localStorage.getItem('cc_wallet');
         const sp = localStorage.getItem('cc_player');
+        const sr = localStorage.getItem('cc_myroom');
         if (sw && sp) { try { setWallet(sw); setPlayer(JSON.parse(sp)); } catch {} }
+        if (sr) setMyRoomId(sr);
         if (window.ethereum && sw) { window.ethereum.request({ method: 'eth_accounts' }).then(a => { if (a[0]?.toLowerCase() === sw.toLowerCase()) setWallet(a[0]); }); }
         return () => { if (timerRef.current) clearInterval(timerRef.current); if (roomChkRef.current) clearInterval(roomChkRef.current); };
       }, []);
+
+      // Load user history
+      useEffect(() => {
+        if (!db || !wallet) return;
+        db.ref('gameHistory').orderByChild('wallet').equalTo(wallet).on('value', s => {
+          if (s.val()) {
+            const list = Object.values(s.val()).sort((a, b) => b.timestamp - a.timestamp);
+            setHist(list);
+          } else {
+            setHist([]);
+          }
+        });
+      }, [db, wallet]);
 
       useEffect(() => {
         if (!db) return;
@@ -123,7 +143,7 @@
           if (d) {
             setRoomData(d);
             if (d.players) setPlayers(Object.values(d.players));
-            if (d.status === 'closed') { alert('房间已关闭'); reset(); }
+            if (d.status === 'closed') { alert('Room closed'); reset(); }
             if (d.status === 'playing' && view !== 'game') { setView('game'); setMyVote(null); }
           }
         });
@@ -131,7 +151,7 @@
           const d = s.val();
           if (d) {
             setGame(d);
-            if (d.messages) setMsgs(Object.values(d.messages).sort((a,b)=>a.timestamp-b.timestamp));
+            if (d.messages) setMsgs(Object.values(d.messages).sort((a, b) => a.timestamp - b.timestamp));
             if (d.phase === 'debate') setMyVote(null);
             if (d.timerEnd && d.phase !== 'ended') setTimer(Math.max(0, Math.floor((d.timerEnd - Date.now()) / 1000)));
           }
@@ -168,31 +188,49 @@
 
       useEffect(() => { msgsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
 
-      const connectWallet = () => { if (!window.ethereum) { alert('请安装MetaMask'); return; } setShowConfirm(true); };
-      const confirmConnect = async () => {
-        setShowConfirm(false); setConnecting(true);
+      const connectWallet = async () => {
+        if (!window.ethereum) { alert('Please install MetaMask'); return null; }
+        setConnecting(true);
         try {
           const accs = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          const addr = accs[0]; setWallet(addr);
+          const addr = accs[0]; 
+          setWallet(addr);
+          localStorage.setItem('cc_wallet', addr);
           if (db) {
             const snap = await db.ref(`players/${addr}`).once('value');
             const saved = snap.val();
-            if (saved) { setPlayer({ id: addr, name: saved.name || '', avatar: saved.avatar || '🎮', exp: saved.exp || 1000 }); localStorage.setItem('cc_player', JSON.stringify({ id: addr, name: saved.name || '', avatar: saved.avatar || '🎮', exp: saved.exp || 1000 })); }
-            else { setPlayer(p => ({ ...p, id: addr })); localStorage.setItem('cc_player', JSON.stringify({ ...player, id: addr })); }
+            if (saved) { 
+              setPlayer({ id: addr, name: saved.name || '', avatar: saved.avatar || '🎮', exp: saved.exp || 0 }); 
+              localStorage.setItem('cc_player', JSON.stringify({ id: addr, name: saved.name || '', avatar: saved.avatar || '🎮', exp: saved.exp || 0 })); 
+            } else { 
+              setPlayer(p => ({ ...p, id: addr, exp: 0 })); 
+              localStorage.setItem('cc_player', JSON.stringify({ ...player, id: addr, exp: 0 })); 
+            }
           }
-          localStorage.setItem('cc_wallet', addr);
           return addr;
-        } catch (e) { alert('连接失败'); return null; }
+        } catch (e) { alert('Connection failed'); return null; }
         finally { setConnecting(false); }
       };
-      const disconnect = () => { setWallet(null); setPlayer({ id: '', name: '', avatar: '🎮', exp: 1000 }); localStorage.removeItem('cc_wallet'); localStorage.removeItem('cc_player'); };
+
+      const disconnect = () => { 
+        setWallet(null); 
+        setPlayer({ id: '', name: '', avatar: '🎮', exp: 0 }); 
+        setMyRoomId(null);
+        localStorage.removeItem('cc_wallet'); 
+        localStorage.removeItem('cc_player'); 
+        localStorage.removeItem('cc_myroom');
+      };
 
       const payFee = async (addr) => {
         if (!window.ethereum) return false;
         setLoading(true);
-        try { await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: addr, to: CONFIG.GENLAYER_CONTRACT, value: '0x0', data: '0x' }] }); return true; }
-        catch (e) { alert(e.code === 4001 ? '用户取消' : '交易失败'); return false; }
-        finally { setLoading(false); }
+        try { 
+          await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: addr, to: CONFIG.GENLAYER_CONTRACT, value: '0x0', data: '0x' }] }); 
+          return true; 
+        } catch (e) { 
+          alert(e.code === 4001 ? 'User cancelled' : 'Transaction failed'); 
+          return false; 
+        } finally { setLoading(false); }
       };
 
       const recordToGL = async () => {
@@ -201,22 +239,40 @@
       };
 
       const createRoom = async (theme) => {
-        if (!db || !player.name) { alert('请先输入名字'); return; }
+        if (!db || !player.name) { alert('Please enter your name first'); return; }
         let addr = wallet;
-        if (!addr) { addr = await confirmConnect(); if (!addr) return; }
+        if (!addr) { addr = await connectWallet(); if (!addr) return; }
         if (!await payFee(addr)) return;
         const rid = `room_${Date.now()}`;
         await db.ref(`rooms/${rid}`).set({ theme, host: addr, status: 'waiting', createdAt: Date.now(), players: { [addr]: { id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false } } });
-        setRoomId(rid); setView('room');
+        setRoomId(rid); 
+        setMyRoomId(rid);
+        localStorage.setItem('cc_myroom', rid);
+        setView('room');
       };
 
       const joinRoom = async (rid) => {
-        if (!db || !player.name) { alert('请先输入名字'); return; }
+        if (!db || !player.name) { alert('Please enter your name first'); return; }
         let addr = wallet;
-        if (!addr) { addr = await confirmConnect(); if (!addr) return; }
+        if (!addr) { addr = await connectWallet(); if (!addr) return; }
+        
+        // If rejoining own room, no payment needed
+        if (rid === myRoomId) {
+          const roomSnap = await db.ref(`rooms/${rid}`).once('value');
+          const roomVal = roomSnap.val();
+          if (roomVal && roomVal.status === 'waiting') {
+            await db.ref(`rooms/${rid}/players/${addr}`).set({ id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false });
+            setRoomId(rid);
+            setView('room');
+            return;
+          }
+        }
+        
+        // Otherwise need payment
         if (!await payFee(addr)) return;
         await db.ref(`rooms/${rid}/players/${addr}`).set({ id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false });
-        setRoomId(rid); setView('room');
+        setRoomId(rid);
+        setView('room');
       };
 
       const addAI = async () => {
@@ -232,13 +288,13 @@
         const arc = THEMES[theme];
         const scores = {}; players.forEach(p => { scores[p.id] = { influence: 0, debates: 0, wins: 0 }; });
         await db.ref(`games/${roomId}`).set({ round: 1, phase: 'debate', path: [], scores, votes: {}, story: [{ text: arc.opening, type: 'opening', round: 0 }], timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000, messages: {} });
-        addMsg('system', `📖 ${arc.name}开始！第1/${CONFIG.TOTAL_ROUNDS}轮 - 辩论`);
+        addMsg('system', `📖 ${arc.name} begins! Round 1/${CONFIG.TOTAL_ROUNDS} - Debate`);
         setTimeout(() => aiDebate(), 3000);
       };
 
       const aiDebate = () => {
         players.filter(p => p.isAI).forEach((ai, i) => {
-          setTimeout(() => { const d = genAIDebate(ai.style); addMsg('chat', d.text, ai, d.choice); }, (i+1)*3000 + Math.random()*5000);
+          setTimeout(() => { const d = genAIDebate(ai.style); addMsg('chat', d.text, ai, d.choice); }, (i + 1) * 3000 + Math.random() * 5000);
         });
       };
 
@@ -246,8 +302,8 @@
         if (!db || !roomId || !game) return;
         if (game.phase === 'debate') {
           await db.ref(`games/${roomId}`).update({ phase: 'vote', timerEnd: Date.now() + CONFIG.VOTE_DURATION * 1000, votes: {} });
-          addMsg('system', '🗳️ 投票开始！所有玩家请投票！');
-          players.filter(p => p.isAI).forEach((ai, i) => { setTimeout(() => db.ref(`games/${roomId}/votes/${ai.id}`).set(Math.random() > 0.5 ? 'A' : 'B'), (i+1)*2000); });
+          addMsg('system', '🗳️ Voting begins! All players please vote!');
+          players.filter(p => p.isAI).forEach((ai, i) => { setTimeout(() => db.ref(`games/${roomId}/votes/${ai.id}`).set(Math.random() > 0.5 ? 'A' : 'B'), (i + 1) * 2000); });
         } else if (game.phase === 'vote') { await calcResult(); }
       };
 
@@ -264,37 +320,68 @@
         const newScores = { ...game.scores };
         Object.entries(votes).forEach(([id, v]) => { if (v === winner && newScores[id]) { newScores[id].influence = (newScores[id].influence || 0) + 30; newScores[id].wins = (newScores[id].wins || 0) + 1; } });
         const newPath = [...(game.path || []), winner];
-        const newStory = [...(game.story || []), { text: `【投票】选项${winner} (${cnt[winner]}票)`, type: 'choice', round, winner }, { text: `选择了「${winOpt?.tag}」：${winOpt?.text}`, type: 'consequence', round }];
-        addMsg('system', `📜 选项${winner}获胜！(${cnt[winner]}票)`);
+        const newStory = [...(game.story || []), { text: `[Vote Result] Option ${winner} (${cnt[winner]} votes)`, type: 'choice', round, winner }, { text: `Chose "${winOpt?.tag}": ${winOpt?.text}`, type: 'consequence', round }];
+        addMsg('system', `📜 Option ${winner} wins! (${cnt[winner]} votes)`);
 
         if (round >= CONFIG.TOTAL_ROUNDS) {
           const ending = arc.endings.default;
           await db.ref(`games/${roomId}`).update({ phase: 'ended', scores: newScores, path: newPath, story: [...newStory, { text: ending, type: 'ending', round }], timerEnd: null });
-          addMsg('system', '🏆 编年史完成！');
+          addMsg('system', '🏆 Chronicle Complete!');
           await recordToGL();
-          db.ref('gameHistory').push().set({ id: Date.now(), timestamp: Date.now(), theme, path: newPath.join(''), ending: ending.slice(0, 80) + '...', date: new Date().toLocaleDateString(), playerCount: players.length, roomId });
+          
+          // Count real players and AI
+          const realCount = players.filter(p => !p.isAI).length;
+          const aiCount = players.filter(p => p.isAI).length;
+          
+          // Save history for each real player
+          players.filter(p => !p.isAI).forEach(p => {
+            db.ref('gameHistory').push().set({ 
+              id: Date.now(), 
+              timestamp: Date.now(), 
+              theme, 
+              path: newPath.join(''), 
+              ending: ending.slice(0, 80) + '...', 
+              datetime: new Date().toISOString(),
+              realPlayers: realCount,
+              aiPlayers: aiCount,
+              roomId,
+              wallet: p.id
+            });
+          });
+          
+          // Update exp for real players
           Object.entries(newScores).forEach(([pid, sc]) => {
             const p = players.find(x => x.id === pid);
             if (p && !p.isAI) {
               const total = (sc.influence || 0) + (sc.debates || 0);
               if (total > 0) {
-                const newExp = (p.exp || 1000) + total;
-                db.ref('leaderboard').push().set({ id: Date.now(), name: p.name, avatar: p.avatar, score: total, exp: newExp, theme, date: new Date().toLocaleDateString(), wallet: pid });
-                db.ref(`players/${pid}`).update({ name: p.name, avatar: p.avatar, exp: newExp });
-                if (pid === player.id) { setPlayer(prev => ({ ...prev, exp: newExp })); localStorage.setItem('cc_player', JSON.stringify({ ...player, exp: newExp })); }
+                db.ref(`players/${pid}`).once('value').then(snap => {
+                  const cur = snap.val()?.exp || 0;
+                  const newExp = cur + total;
+                  db.ref(`players/${pid}`).update({ name: p.name, avatar: p.avatar, exp: newExp });
+                  if (pid === player.id) { 
+                    setPlayer(prev => ({ ...prev, exp: newExp })); 
+                    localStorage.setItem('cc_player', JSON.stringify({ ...player, exp: newExp })); 
+                  }
+                });
               }
             }
           });
+          
+          // Clear my room after game ends
+          setMyRoomId(null);
+          localStorage.removeItem('cc_myroom');
         } else {
           const nextRd = round + 1;
-          const nextCtx = arc.rounds[nextRd - 1]?.context || '故事继续...';
+          const nextCtx = arc.rounds[nextRd - 1]?.context || 'The story continues...';
           await db.ref(`games/${roomId}`).update({ round: nextRd, phase: 'debate', scores: newScores, path: newPath, story: [...newStory, { text: nextCtx, type: 'context', round: nextRd }], timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000, votes: {} });
-          addMsg('system', `📖 第${nextRd}/${CONFIG.TOTAL_ROUNDS}轮 - 辩论`);
+          addMsg('system', `📖 Round ${nextRd}/${CONFIG.TOTAL_ROUNDS} - Debate`);
           setTimeout(() => aiDebate(), 3000);
         }
       };
 
       const addMsg = async (type, text, sender = null, choice = null) => { if (db && roomId) await db.ref(`games/${roomId}/messages`).push().set({ type, text, sender, choice, timestamp: Date.now() }); };
+      
       const submitDebate = async () => {
         if (!input.trim() || game?.phase !== 'debate') return;
         const c = input.toUpperCase().includes('A') ? 'A' : input.toUpperCase().includes('B') ? 'B' : null;
@@ -302,61 +389,359 @@
         setInput('');
         if (game?.scores?.[player.id] !== undefined) await db.ref(`games/${roomId}/scores/${player.id}/debates`).set((game.scores[player.id].debates || 0) + 10);
       };
+      
       const vote = async (c) => { if (game?.phase !== 'vote' || myVote) return; setMyVote(c); await db.ref(`games/${roomId}/votes/${player.id}`).set(c); };
-      const reset = () => { if (timerRef.current) clearInterval(timerRef.current); if (roomChkRef.current) clearInterval(roomChkRef.current); setRoomId(null); setRoomData(null); setGame(null); setPlayers([]); setMsgs([]); setMyVote(null); setView('home'); };
-      const fmtTime = s => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
-      const shortAddr = a => a ? `${a.slice(0,6)}...${a.slice(-4)}` : '';
+      
+      const reset = () => { 
+        if (timerRef.current) clearInterval(timerRef.current); 
+        if (roomChkRef.current) clearInterval(roomChkRef.current); 
+        setRoomId(null); 
+        setRoomData(null); 
+        setGame(null); 
+        setPlayers([]); 
+        setMsgs([]); 
+        setMyVote(null); 
+        setView('home'); 
+      };
+      
+      const fmtTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+      const shortAddr = a => a ? `${a.slice(0, 6)}...${a.slice(-4)}` : '';
       const getOpts = () => { if (!game || !roomData) return { a: null, b: null }; const rd = THEMES[roomData.theme]?.rounds[(game.round || 1) - 1]; return { a: rd?.a, b: rd?.b }; };
       const opts = getOpts();
       const votes = game?.votes || {};
       const theme = roomData?.theme ? THEMES[roomData.theme] : THEMES.fantasy;
 
-      const Modal = ({ show, children }) => show ? <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>{children}</div> : null;
-
-      if (view === 'home') return (
-        <div style={{ minHeight: '100vh', background: C.bg, color: C.text }}>
-          <Modal show={showConfirm}><div style={{ background: C.bgCard, borderRadius: '16px', padding: '2rem', maxWidth: '400px', border: `1px solid ${C.border}`, textAlign: 'center' }}><div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🦊</div><h2 style={{ color: C.gold, marginBottom: '1rem' }}>连接钱包</h2><p style={{ color: C.muted, marginBottom: '1.5rem' }}>确认连接MetaMask？<br/>钱包地址将作为您的ID</p><div style={{ display: 'flex', gap: '1rem' }}><button onClick={() => setShowConfirm(false)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '8px', color: C.muted, cursor: 'pointer' }}>取消</button><button onClick={confirmConnect} style={{ flex: 1, padding: '0.8rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '8px', color: '#000', fontWeight: 600, cursor: 'pointer' }}>确认</button></div></div></Modal>
-          <Modal show={showRules}><div style={{ background: C.bgCard, borderRadius: '16px', padding: '2rem', maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto', border: `1px solid ${C.border}` }}><h2 style={{ color: C.gold, marginBottom: '1rem', textAlign: 'center' }}>📖 游戏规则</h2><div style={{ color: C.text, lineHeight: 1.8, fontSize: '0.9rem' }}><p><b style={{ color: C.goldLight }}>🎯 目标：</b>与其他玩家完成5轮故事决策，获得最高积分</p><p><b style={{ color: C.goldLight }}>🔗 入场：</b>连接MetaMask → 确认GenLayer交易(0 GEN)</p><p><b style={{ color: C.goldLight }}>⏰ 房间：</b>最少2人，1分钟无人加入AI填充，2分钟未开始关闭</p><p><b style={{ color: C.goldLight }}>🎮 流程：</b>辩论(90秒) → 投票(30秒) → 结果 → 下一轮</p><p><b style={{ color: C.goldLight }}>⭐ 积分：</b>辩论+10分，投票获胜+30分，累计到经验值</p></div><button onClick={() => setShowRules(false)} style={{ width: '100%', padding: '1rem', marginTop: '1rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '10px', color: '#000', fontWeight: 600, cursor: 'pointer' }}>我知道了</button></div></Modal>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: `1px solid ${C.border}`, background: C.bgLight }}><div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}><span style={{ fontSize: '1.3rem' }}>📜</span><span style={{ fontSize: '1.1rem', fontWeight: 700, color: C.gold }}>共识编年史</span></div><div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>{player.name && <span style={{ color: C.muted, fontSize: '0.9rem' }}>{player.avatar} {player.name} • ⭐{player.exp}</span>}{wallet ? <button onClick={disconnect} style={{ padding: '0.4rem 0.8rem', background: `${C.success}15`, border: `1px solid ${C.success}40`, borderRadius: '20px', fontSize: '0.8rem', color: C.success, cursor: 'pointer' }} title="点击断开">🔗 {shortAddr(wallet)}</button> : <button onClick={connectWallet} disabled={connecting} style={{ padding: '0.5rem 1rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '20px', color: '#000', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>{connecting ? '连接中...' : '🦊 连接钱包'}</button>}</div></div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.8rem', padding: '1rem', borderBottom: `1px solid ${C.border}20`, background: C.bgLight }}>{[{ k: 'game', l: '🎮 游戏' }, { k: 'leaderboard', l: '🏆 排行榜' }, { k: 'history', l: '📚 历史' }].map(t => <button key={t.k} onClick={() => setTab(t.k)} style={{ padding: '0.5rem 1.2rem', background: tab === t.k ? `${C.gold}20` : 'transparent', border: tab === t.k ? `1px solid ${C.gold}50` : '1px solid transparent', borderRadius: '8px', color: tab === t.k ? C.gold : C.muted, fontSize: '0.9rem', cursor: 'pointer' }}>{t.l}</button>)}<button onClick={() => setShowRules(true)} style={{ padding: '0.5rem 1.2rem', background: `${C.accent}15`, border: `1px solid ${C.accent}30`, borderRadius: '8px', color: C.accent, fontSize: '0.9rem', cursor: 'pointer' }}>📖 规则</button></div>
-          <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
-            {tab === 'game' && (<>{!player.name ? <div style={{ maxWidth: '400px', margin: '3rem auto', textAlign: 'center' }}><h2 style={{ marginBottom: '1rem', color: C.gold }}>输入你的名字</h2><input type="text" placeholder="名字..." style={{ width: '100%', padding: '1rem', fontSize: '1rem', background: C.bgCard, border: `2px solid ${C.border}`, borderRadius: '12px', color: C.text, outline: 'none', textAlign: 'center' }} onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { const n = e.target.value.trim(); setPlayer(p => ({ ...p, name: n })); if (wallet) { localStorage.setItem('cc_player', JSON.stringify({ ...player, name: n })); db?.ref(`players/${wallet}`).update({ name: n, avatar: player.avatar }); } } }} /><p style={{ marginTop: '0.5rem', color: C.muted, fontSize: '0.85rem' }}>按Enter确认</p></div> : <><div style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '0.8rem', background: `${C.gold}10`, borderRadius: '10px', border: `1px solid ${C.border}` }}><p style={{ color: C.gold }}>⚡ 创建/加入需确认GenLayer交易(0 GEN)</p></div>{rooms.length > 0 && <div style={{ marginBottom: '2rem' }}><h3 style={{ color: C.gold, marginBottom: '1rem' }}>🚪 可加入的房间</h3>{rooms.map(r => <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', marginBottom: '0.5rem', background: C.bgCard, borderRadius: '10px', border: `1px solid ${C.border}` }}><div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}><span style={{ fontSize: '1.5rem' }}>{THEMES[r.theme]?.icon}</span><div><div style={{ fontWeight: 600 }}>{THEMES[r.theme]?.name}</div><div style={{ fontSize: '0.8rem', color: C.muted }}>{Object.keys(r.players || {}).length}/{CONFIG.ROOM_SIZE.max}</div></div></div><button onClick={() => joinRoom(r.id)} disabled={loading} style={{ padding: '0.5rem 1.5rem', background: loading ? C.bgCard : `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '8px', color: loading ? C.muted : '#000', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer' }}>{loading ? '处理中...' : '加入'}</button></div>)}</div>}<h3 style={{ color: C.gold, marginBottom: '1rem', textAlign: 'center' }}>选择主题创建房间</h3><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>{Object.entries(THEMES).map(([k, t]) => <button key={k} onClick={() => createRoom(k)} disabled={loading} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem', background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: '14px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}><span style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{t.icon}</span><span style={{ fontSize: '1rem', fontWeight: 600, color: C.gold }}>{t.name}</span></button>)}</div>{loading && <div style={{ textAlign: 'center', padding: '1.5rem', color: C.accent }}>⏳ 等待交易确认...</div>}</>}</>)}
-            {tab === 'leaderboard' && <div style={{ maxWidth: '600px', margin: '0 auto' }}><h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: C.gold }}>🏆 排行榜</h2>{lb.length === 0 ? <p style={{ textAlign: 'center', color: C.muted, padding: '3rem' }}>暂无记录</p> : <div style={{ maxHeight: '500px', overflowY: 'auto' }}>{lb.map((e, i) => <div key={e.id || i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: i === 0 ? `${C.gold}15` : C.bgCard, borderRadius: '10px', marginBottom: '0.5rem', border: i === 0 ? `1px solid ${C.gold}40` : `1px solid ${C.border}` }}><span style={{ fontWeight: 700, color: i < 3 ? C.gold : C.muted, width: '2rem' }}>#{i + 1}</span><span style={{ fontSize: '1.5rem' }}>{e.avatar}</span><div style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{e.name}</div><div style={{ fontSize: '0.75rem', color: C.muted }}>{THEMES[e.theme]?.name} • {e.date}</div></div><div style={{ textAlign: 'right' }}><div style={{ fontWeight: 700, color: C.gold }}>{e.score}分</div><div style={{ fontSize: '0.7rem', color: C.muted }}>累计⭐{e.exp || '-'}</div></div></div>)}</div>}</div>}
-            {tab === 'history' && <div style={{ maxWidth: '700px', margin: '0 auto' }}><h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: C.gold }}>📚 游戏历史</h2>{hist.length === 0 ? <p style={{ textAlign: 'center', color: C.muted, padding: '3rem' }}>暂无记录</p> : <div style={{ maxHeight: '500px', overflowY: 'auto' }}>{hist.map((g, i) => <div key={g.id || i} style={{ padding: '1rem', background: C.bgCard, borderRadius: '10px', marginBottom: '0.8rem', border: `1px solid ${C.border}` }}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}><span style={{ fontWeight: 600 }}>{THEMES[g.theme]?.icon} {THEMES[g.theme]?.name}</span><span style={{ fontSize: '0.8rem', color: C.muted }}>{g.date} • {g.playerCount}人</span></div><div style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '0.5rem' }}>路径: {g.path?.split('').map((c, j) => <span key={j} style={{ padding: '0.1rem 0.4rem', margin: '0 0.2rem', background: c === 'A' ? `${C.optA}30` : `${C.optB}30`, borderRadius: '4px', color: c === 'A' ? C.optA : C.optB }}>{c}</span>)}</div><div style={{ fontSize: '0.85rem', color: C.goldLight, fontStyle: 'italic' }}>{g.ending}</div></div>)}</div>}</div>}
+      // Rules Modal
+      const RulesModal = () => showRules && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div style={{ background: C.bgCard, borderRadius: '16px', padding: '2rem', maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto', border: `1px solid ${C.border}` }}>
+            <h2 style={{ color: C.gold, marginBottom: '1.5rem', textAlign: 'center' }}>📖 Game Rules</h2>
+            <div style={{ color: C.text, lineHeight: 1.8 }}>
+              <h3 style={{ color: C.goldLight, marginBottom: '0.5rem' }}>🎯 Objective</h3>
+              <p style={{ marginBottom: '1rem', color: C.muted }}>Complete 5 rounds of story decisions with other players. Influence the story through debate and voting to earn the highest score!</p>
+              
+              <h3 style={{ color: C.goldLight, marginBottom: '0.5rem' }}>🔗 Entry Rules</h3>
+              <p style={{ marginBottom: '1rem', color: C.muted }}>• Connect MetaMask wallet to create/join rooms<br/>• Confirm GenLayer transaction (0 GEN fee)<br/>• Transaction failure prevents room creation/joining</p>
+              
+              <h3 style={{ color: C.goldLight, marginBottom: '0.5rem' }}>⏰ Room Rules</h3>
+              <p style={{ marginBottom: '1rem', color: C.muted }}>• Minimum 2 players, maximum 8 players<br/>• AI auto-fills after 1 minute if no one joins<br/>• Room auto-closes after 2 minutes if not started</p>
+              
+              <h3 style={{ color: C.goldLight, marginBottom: '0.5rem' }}>🎮 Game Flow</h3>
+              <p style={{ marginBottom: '1rem', color: C.muted }}>• <b>Debate Phase (60s)</b>: Read background, share opinions in chat<br/>• <b>Vote Phase (20s)</b>: All players choose A or B<br/>• <b>Result</b>: Majority vote determines story direction<br/>• 5 rounds total, story branches based on choices</p>
+              
+              <h3 style={{ color: C.goldLight, marginBottom: '0.5rem' }}>⭐ Scoring</h3>
+              <p style={{ marginBottom: '1rem', color: C.muted }}>• Submit debate opinion: +10 points<br/>• Vote for winning option: +30 points<br/>• Points accumulate to player EXP</p>
+              
+              <h3 style={{ color: C.goldLight, marginBottom: '0.5rem' }}>📊 Data Storage</h3>
+              <p style={{ color: C.muted }}>• Real-time data: Firebase<br/>• Final results: GenLayer blockchain</p>
+            </div>
+            <button onClick={() => setShowRules(false)} style={{ width: '100%', padding: '1rem', marginTop: '1.5rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '10px', color: '#000', fontSize: '1rem', fontWeight: 600, cursor: 'pointer' }}>Got it!</button>
           </div>
         </div>
       );
 
+      // HOME VIEW
+      if (view === 'home') return (
+        <div style={{ minHeight: '100vh', background: C.bg, color: C.text }}>
+          <RulesModal />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: `1px solid ${C.border}`, background: C.bgLight }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}><span style={{ fontSize: '1.3rem' }}>📜</span><span style={{ fontSize: '1.1rem', fontWeight: 700, color: C.gold }}>Consensus Chronicle</span></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              {player.name && <span style={{ color: C.muted, fontSize: '0.9rem' }}>{player.avatar} {player.name} • ⭐{player.exp}</span>}
+              {wallet ? (
+                <button onClick={disconnect} style={{ padding: '0.4rem 0.8rem', background: `${C.success}15`, border: `1px solid ${C.success}40`, borderRadius: '20px', fontSize: '0.8rem', color: C.success, cursor: 'pointer' }} title="Click to disconnect">🔗 {shortAddr(wallet)}</button>
+              ) : (
+                <button onClick={connectWallet} disabled={connecting} style={{ padding: '0.5rem 1rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '20px', color: '#000', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>{connecting ? 'Connecting...' : '🦊 Connect Wallet'}</button>
+              )}
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.8rem', padding: '1rem', borderBottom: `1px solid ${C.border}20`, background: C.bgLight }}>
+            {[{ k: 'game', l: '🎮 Game' }, { k: 'leaderboard', l: '🏆 Leaderboard' }, { k: 'history', l: '📚 History' }].map(t => (
+              <button key={t.k} onClick={() => setTab(t.k)} style={{ padding: '0.5rem 1.2rem', background: tab === t.k ? `${C.gold}20` : 'transparent', border: tab === t.k ? `1px solid ${C.gold}50` : '1px solid transparent', borderRadius: '8px', color: tab === t.k ? C.gold : C.muted, fontSize: '0.9rem', cursor: 'pointer' }}>{t.l}</button>
+            ))}
+            <button onClick={() => setShowRules(true)} style={{ padding: '0.5rem 1.2rem', background: `${C.accent}15`, border: `1px solid ${C.accent}30`, borderRadius: '8px', color: C.accent, fontSize: '0.9rem', cursor: 'pointer' }}>📖 Rules</button>
+          </div>
+          
+          <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
+            {tab === 'game' && (
+              <>
+                {!player.name ? (
+                  <div style={{ maxWidth: '400px', margin: '3rem auto', textAlign: 'center' }}>
+                    <h2 style={{ marginBottom: '1rem', color: C.gold }}>Enter Your Name</h2>
+                    <input type="text" placeholder="Your name..." style={{ width: '100%', padding: '1rem', fontSize: '1rem', background: C.bgCard, border: `2px solid ${C.border}`, borderRadius: '12px', color: C.text, outline: 'none', textAlign: 'center' }} onKeyDown={e => { 
+                      if (e.key === 'Enter' && e.target.value.trim()) { 
+                        const n = e.target.value.trim(); 
+                        setPlayer(p => ({ ...p, name: n })); 
+                        if (wallet) { 
+                          localStorage.setItem('cc_player', JSON.stringify({ ...player, name: n })); 
+                          db?.ref(`players/${wallet}`).update({ name: n, avatar: player.avatar }); 
+                        } 
+                      } 
+                    }} />
+                    <p style={{ marginTop: '0.5rem', color: C.muted, fontSize: '0.85rem' }}>Press Enter to confirm</p>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '0.8rem', background: `${C.gold}10`, borderRadius: '10px', border: `1px solid ${C.border}` }}>
+                      <p style={{ color: C.gold }}>⚡ Creating/Joining requires GenLayer transaction (0 GEN)</p>
+                    </div>
+                    
+                    {/* My Room - can rejoin without payment */}
+                    {myRoomId && rooms.find(r => r.id === myRoomId) && (
+                      <div style={{ marginBottom: '2rem', padding: '1rem', background: `${C.gold}15`, borderRadius: '10px', border: `1px solid ${C.gold}40` }}>
+                        <h3 style={{ color: C.gold, marginBottom: '0.5rem' }}>🏠 Your Room</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                            <span style={{ fontSize: '1.5rem' }}>{THEMES[rooms.find(r => r.id === myRoomId)?.theme]?.icon}</span>
+                            <span>{THEMES[rooms.find(r => r.id === myRoomId)?.theme]?.name}</span>
+                          </div>
+                          <button onClick={() => joinRoom(myRoomId)} style={{ padding: '0.5rem 1.5rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '8px', color: '#000', fontWeight: 600, cursor: 'pointer' }}>Rejoin (Free)</button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Available Rooms */}
+                    {rooms.filter(r => r.id !== myRoomId).length > 0 && (
+                      <div style={{ marginBottom: '2rem' }}>
+                        <h3 style={{ color: C.gold, marginBottom: '1rem' }}>🚪 Available Rooms</h3>
+                        {rooms.filter(r => r.id !== myRoomId).map(r => (
+                          <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', marginBottom: '0.5rem', background: C.bgCard, borderRadius: '10px', border: `1px solid ${C.border}` }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                              <span style={{ fontSize: '1.5rem' }}>{THEMES[r.theme]?.icon}</span>
+                              <div>
+                                <div style={{ fontWeight: 600 }}>{THEMES[r.theme]?.name}</div>
+                                <div style={{ fontSize: '0.8rem', color: C.muted }}>{Object.keys(r.players || {}).length}/{CONFIG.ROOM_SIZE.max} players</div>
+                              </div>
+                            </div>
+                            <button onClick={() => joinRoom(r.id)} disabled={loading} style={{ padding: '0.5rem 1.5rem', background: loading ? C.bgCard : `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '8px', color: loading ? C.muted : '#000', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer' }}>{loading ? 'Processing...' : 'Join'}</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <h3 style={{ color: C.gold, marginBottom: '1rem', textAlign: 'center' }}>Select Theme to Create Room</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                      {Object.entries(THEMES).map(([k, t]) => (
+                        <button key={k} onClick={() => createRoom(k)} disabled={loading} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem', background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: '14px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}>
+                          <span style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{t.icon}</span>
+                          <span style={{ fontSize: '1rem', fontWeight: 600, color: C.gold }}>{t.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {loading && <div style={{ textAlign: 'center', padding: '1.5rem', color: C.accent }}>⏳ Waiting for transaction...</div>}
+                  </>
+                )}
+              </>
+            )}
+            
+            {/* Leaderboard - by user ID, sorted by total EXP */}
+            {tab === 'leaderboard' && (
+              <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+                <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: C.gold }}>🏆 Leaderboard (by Total EXP)</h2>
+                {lb.length === 0 ? (
+                  <p style={{ textAlign: 'center', color: C.muted, padding: '3rem' }}>No records yet</p>
+                ) : (
+                  <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                    {lb.map((e, i) => (
+                      <div key={e.id || i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: i === 0 ? `${C.gold}15` : C.bgCard, borderRadius: '10px', marginBottom: '0.5rem', border: i === 0 ? `1px solid ${C.gold}40` : `1px solid ${C.border}` }}>
+                        <span style={{ fontWeight: 700, color: i < 3 ? C.gold : C.muted, width: '2rem' }}>#{i + 1}</span>
+                        <span style={{ fontSize: '1.5rem' }}>{e.avatar || '🎮'}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600 }}>{e.name || 'Anonymous'}</div>
+                          <div style={{ fontSize: '0.75rem', color: C.muted }}>{shortAddr(e.id)}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: 700, color: C.gold, fontSize: '1.2rem' }}>⭐ {e.exp}</div>
+                          <div style={{ fontSize: '0.7rem', color: C.muted }}>Total EXP</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* History - only current user, time to seconds */}
+            {tab === 'history' && (
+              <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+                <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: C.gold }}>📚 Your Game History</h2>
+                {!wallet ? (
+                  <p style={{ textAlign: 'center', color: C.muted, padding: '3rem' }}>Please connect wallet to view history</p>
+                ) : hist.length === 0 ? (
+                  <p style={{ textAlign: 'center', color: C.muted, padding: '3rem' }}>No games yet</p>
+                ) : (
+                  <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                    {hist.map((g, i) => (
+                      <div key={g.id || i} style={{ padding: '1rem', background: C.bgCard, borderRadius: '10px', marginBottom: '0.8rem', border: `1px solid ${C.border}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                          <span style={{ fontWeight: 600 }}>{THEMES[g.theme]?.icon} {THEMES[g.theme]?.name}</span>
+                          <span style={{ fontSize: '0.8rem', color: C.muted }}>{new Date(g.timestamp).toLocaleString()}</span>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '0.5rem' }}>
+                          Players: {g.realPlayers || 1} real + {g.aiPlayers || 0} AI | Path: {g.path?.split('').map((c, j) => (
+                            <span key={j} style={{ padding: '0.1rem 0.4rem', margin: '0 0.2rem', background: c === 'A' ? `${C.optA}30` : `${C.optB}30`, borderRadius: '4px', color: c === 'A' ? C.optA : C.optB }}>{c}</span>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: C.goldLight, fontStyle: 'italic' }}>{g.ending}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+
+      // ROOM VIEW
       if (view === 'room') {
         const age = roomData ? Math.floor((Date.now() - roomData.createdAt) / 1000) : 0;
         return (
           <div style={{ minHeight: '100vh', background: C.bg, color: C.text }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: `1px solid ${C.border}`, background: C.bgLight }}><button onClick={reset} style={{ padding: '0.5rem 1rem', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '8px', color: C.muted, cursor: 'pointer' }}>← 返回</button><div><span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{theme?.icon}</span><span style={{ fontWeight: 600, color: C.gold }}>{theme?.name}</span></div><span style={{ color: C.muted, fontSize: '0.9rem' }}>{player.avatar} {player.name} • ⭐{player.exp}</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: `1px solid ${C.border}`, background: C.bgLight }}>
+              <button onClick={reset} style={{ padding: '0.5rem 1rem', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '8px', color: C.muted, cursor: 'pointer' }}>← Back</button>
+              <div><span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{theme?.icon}</span><span style={{ fontWeight: 600, color: C.gold }}>{theme?.name}</span></div>
+              <span style={{ color: C.muted, fontSize: '0.9rem' }}>{player.avatar} {player.name} • ⭐{player.exp}</span>
+            </div>
             <div style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem' }}>
-              <div style={{ textAlign: 'center', marginBottom: '2rem' }}><span style={{ fontSize: '4rem' }}>{theme?.icon}</span><h2 style={{ color: C.gold, marginTop: '0.5rem' }}>{theme?.name}</h2><p style={{ color: C.muted }}>{age}秒</p></div>
-              {age > 60 && <div style={{ textAlign: 'center', marginBottom: '1rem', padding: '0.8rem', background: `${C.accent}15`, borderRadius: '8px', color: C.accent }}>⏰ 超过1分钟，AI将自动加入</div>}
-              <h3 style={{ color: C.muted, marginBottom: '1rem' }}>玩家 ({players.length}/{CONFIG.ROOM_SIZE.max})</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>{players.map(p => <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem', background: p.id === player.id ? `${C.gold}15` : C.bgCard, border: `1px solid ${p.id === player.id ? C.gold : C.border}`, borderRadius: '10px', position: 'relative' }}><span style={{ fontSize: '2rem', marginBottom: '0.3rem' }}>{p.avatar}</span><span style={{ fontSize: '0.85rem' }}>{p.name}</span>{p.isAI && <span style={{ position: 'absolute', top: '0.3rem', left: '0.3rem', fontSize: '0.5rem', padding: '0.1rem 0.3rem', background: C.optB, borderRadius: '3px' }}>AI</span>}{p.id === roomData?.host && <span style={{ position: 'absolute', top: '0.3rem', right: '0.3rem', fontSize: '0.5rem', padding: '0.1rem 0.3rem', background: C.gold, color: '#000', borderRadius: '3px' }}>房主</span>}</div>)}</div>
-              {player.id === roomData?.host && <><button onClick={startGame} disabled={players.length < CONFIG.ROOM_SIZE.min} style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', fontWeight: 600, border: 'none', borderRadius: '10px', cursor: players.length >= CONFIG.ROOM_SIZE.min ? 'pointer' : 'not-allowed', background: players.length >= CONFIG.ROOM_SIZE.min ? `linear-gradient(135deg, ${C.gold}, ${C.goldDark})` : C.bgCard, color: players.length >= CONFIG.ROOM_SIZE.min ? '#000' : C.muted, marginBottom: '1rem' }}>{players.length >= CONFIG.ROOM_SIZE.min ? '🎮 开始游戏' : `等待(${players.length}/${CONFIG.ROOM_SIZE.min})`}</button><button onClick={addAI} style={{ width: '100%', padding: '0.8rem', border: `1px solid ${C.optB}50`, borderRadius: '10px', background: 'transparent', color: C.optB, cursor: 'pointer' }}>🤖 添加AI</button></>}
+              <div style={{ textAlign: 'center', marginBottom: '2rem' }}><span style={{ fontSize: '4rem' }}>{theme?.icon}</span><h2 style={{ color: C.gold, marginTop: '0.5rem' }}>{theme?.name}</h2><p style={{ color: C.muted }}>{age}s</p></div>
+              {age > 60 && <div style={{ textAlign: 'center', marginBottom: '1rem', padding: '0.8rem', background: `${C.accent}15`, borderRadius: '8px', color: C.accent }}>⏰ Over 1 min, AI will auto-join</div>}
+              <h3 style={{ color: C.muted, marginBottom: '1rem' }}>Players ({players.length}/{CONFIG.ROOM_SIZE.max})</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+                {players.map(p => (
+                  <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem', background: p.id === player.id ? `${C.gold}15` : C.bgCard, border: `1px solid ${p.id === player.id ? C.gold : C.border}`, borderRadius: '10px', position: 'relative' }}>
+                    <span style={{ fontSize: '2rem', marginBottom: '0.3rem' }}>{p.avatar}</span>
+                    <span style={{ fontSize: '0.85rem' }}>{p.name}</span>
+                    {p.isAI && <span style={{ position: 'absolute', top: '0.3rem', left: '0.3rem', fontSize: '0.5rem', padding: '0.1rem 0.3rem', background: C.optB, borderRadius: '3px' }}>AI</span>}
+                    {p.id === roomData?.host && <span style={{ position: 'absolute', top: '0.3rem', right: '0.3rem', fontSize: '0.5rem', padding: '0.1rem 0.3rem', background: C.gold, color: '#000', borderRadius: '3px' }}>Host</span>}
+                  </div>
+                ))}
+              </div>
+              {player.id === roomData?.host && (
+                <>
+                  <button onClick={startGame} disabled={players.length < CONFIG.ROOM_SIZE.min} style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', fontWeight: 600, border: 'none', borderRadius: '10px', cursor: players.length >= CONFIG.ROOM_SIZE.min ? 'pointer' : 'not-allowed', background: players.length >= CONFIG.ROOM_SIZE.min ? `linear-gradient(135deg, ${C.gold}, ${C.goldDark})` : C.bgCard, color: players.length >= CONFIG.ROOM_SIZE.min ? '#000' : C.muted, marginBottom: '1rem' }}>
+                    {players.length >= CONFIG.ROOM_SIZE.min ? '🎮 Start Game' : `Waiting (${players.length}/${CONFIG.ROOM_SIZE.min})`}
+                  </button>
+                  <button onClick={addAI} style={{ width: '100%', padding: '0.8rem', border: `1px solid ${C.optB}50`, borderRadius: '10px', background: 'transparent', color: C.optB, cursor: 'pointer' }}>🤖 Add AI Players</button>
+                </>
+              )}
             </div>
           </div>
         );
       }
 
+      // GAME VIEW
       return (
         <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', color: C.text }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 2rem', background: C.bgLight, borderBottom: `1px solid ${C.border}` }}><div><div style={{ fontSize: '0.8rem', color: C.muted }}>第{game?.round || 1}/{CONFIG.TOTAL_ROUNDS}轮</div><div style={{ fontWeight: 600, color: C.gold }}>{game?.phase === 'debate' && '💬 辩论'}{game?.phase === 'vote' && '🗳️ 投票'}{game?.phase === 'ended' && '🏆 结束'}</div></div><div style={{ fontSize: '2.5rem', fontWeight: 700, fontFamily: 'monospace', color: timer <= 10 && game?.phase !== 'ended' ? C.error : C.gold }}>{game?.phase === 'ended' ? '--:--' : fmtTime(timer)}</div><div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem', color: C.muted }}>积分</div><div style={{ fontSize: '1.3rem', fontWeight: 700, color: C.accent }}>{(game?.scores?.[player.id]?.influence || 0) + (game?.scores?.[player.id]?.debates || 0)}</div></div></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 2rem', background: C.bgLight, borderBottom: `1px solid ${C.border}` }}>
+            <button onClick={reset} style={{ padding: '0.4rem 0.8rem', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '6px', color: C.muted, cursor: 'pointer', fontSize: '0.8rem' }}>← Exit</button>
+            <div><div style={{ fontSize: '0.8rem', color: C.muted, textAlign: 'center' }}>Round {game?.round || 1}/{CONFIG.TOTAL_ROUNDS}</div><div style={{ fontWeight: 600, color: C.gold, textAlign: 'center' }}>{game?.phase === 'debate' && '💬 Debate'}{game?.phase === 'vote' && '🗳️ Vote'}{game?.phase === 'ended' && '🏆 Ended'}</div></div>
+            <div style={{ fontSize: '2rem', fontWeight: 700, fontFamily: 'monospace', color: timer <= 10 && game?.phase !== 'ended' ? C.error : C.gold }}>{game?.phase === 'ended' ? '--:--' : fmtTime(timer)}</div>
+            <div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem', color: C.muted }}>Score</div><div style={{ fontSize: '1.3rem', fontWeight: 700, color: C.accent }}>{(game?.scores?.[player.id]?.influence || 0) + (game?.scores?.[player.id]?.debates || 0)}</div></div>
+          </div>
+          
           <div style={{ flex: 1, display: 'flex', gap: '1rem', padding: '1rem', overflow: 'hidden' }}>
+            {/* Left: Story */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
-              <div style={{ flex: 1, background: C.bgCard, borderRadius: '10px', padding: '1rem', overflowY: 'auto', border: `1px solid ${C.border}` }}><h3 style={{ color: C.gold, marginBottom: '1rem', fontSize: '0.95rem' }}>📜 {theme?.name}</h3>{(game?.story || []).map((s, i) => <div key={i} style={{ padding: '0.5rem 0', borderBottom: i < (game?.story?.length || 0) - 1 ? `1px solid ${C.border}20` : 'none' }}>{s.type === 'opening' && <p style={{ color: C.goldLight, fontStyle: 'italic', lineHeight: 1.6 }}>{s.text}</p>}{s.type === 'context' && <p style={{ color: C.accent, lineHeight: 1.6 }}><span style={{ background: `${C.accent}20`, padding: '0.15rem 0.4rem', borderRadius: '4px', marginRight: '0.4rem', fontSize: '0.8rem' }}>第{s.round}轮</span>{s.text}</p>}{s.type === 'choice' && <p style={{ color: C.success, lineHeight: 1.6 }}>{s.winner === 'A' ? '🅰️' : '🅱️'} {s.text}</p>}{s.type === 'consequence' && <p style={{ color: C.muted, lineHeight: 1.6, paddingLeft: '1rem', borderLeft: `2px solid ${C.gold}30` }}>{s.text}</p>}{s.type === 'ending' && <p style={{ color: C.gold, lineHeight: 1.6, padding: '0.5rem', background: `${C.gold}10`, borderRadius: '8px' }}>🎬 {s.text}</p>}</div>)}</div>
-              {(game?.phase === 'debate' || game?.phase === 'vote') && opts.a && <div style={{ background: C.bgCard, borderRadius: '10px', padding: '1rem', border: `1px solid ${C.border}` }}><h4 style={{ textAlign: 'center', marginBottom: '0.8rem', color: C.gold }}>⚔️ 本轮抉择</h4><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>{[{ k: 'A', o: opts.a, c: C.optA }, { k: 'B', o: opts.b, c: C.optB }].map(({ k, o, c }) => <div key={k} onClick={() => game?.phase === 'vote' && vote(k)} style={{ padding: '1rem', borderRadius: '8px', border: `2px solid ${myVote === k ? c : `${c}40`}`, background: `${c}10`, cursor: game?.phase === 'vote' && !myVote ? 'pointer' : 'default', opacity: myVote && myVote !== k ? 0.5 : 1 }}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}><span style={{ fontWeight: 700, color: c }}>选项{k}</span><span style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem', background: `${c}20`, borderRadius: '4px', color: c }}>{o?.tag}</span></div><p style={{ lineHeight: 1.4, fontSize: '0.85rem' }}>{o?.text}</p>{game?.phase === 'vote' && <div style={{ marginTop: '0.6rem', textAlign: 'center', fontSize: '1.1rem', fontWeight: 600, color: C.gold }}>{Object.values(votes).filter(v => v === k).length}票</div>}{myVote === k && <div style={{ textAlign: 'center', marginTop: '0.3rem', color: c, fontSize: '0.8rem' }}>✓ 已投票</div>}</div>)}</div></div>}
-              {game?.phase === 'ended' && <div style={{ background: `linear-gradient(145deg, ${C.gold}15, ${C.bgCard})`, borderRadius: '10px', padding: '1.5rem', textAlign: 'center', border: `1px solid ${C.gold}40` }}><h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: C.gold }}>🏆 编年史完成！</h2><div style={{ maxWidth: '350px', margin: '0 auto 1rem' }}>{Object.entries(game?.scores || {}).map(([id, sc]) => ({ p: players.find(x => x.id === id), t: (sc.influence || 0) + (sc.debates || 0) })).sort((a, b) => b.t - a.t).map((r, i) => <div key={r.p?.id || i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem', marginBottom: '0.3rem', background: i === 0 ? `${C.gold}20` : C.bgCard, borderRadius: '6px', border: i === 0 ? `1px solid ${C.gold}40` : 'none' }}><span style={{ fontWeight: 700, color: i < 3 ? C.gold : C.muted }}>#{i + 1}</span><span>{r.p?.avatar}</span><span style={{ flex: 1 }}>{r.p?.name}</span><span style={{ fontWeight: 600, color: C.gold }}>{r.t}分</span></div>)}</div><button onClick={reset} style={{ padding: '0.6rem 1.5rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '8px', color: '#000', fontWeight: 600, cursor: 'pointer' }}>返回大厅</button></div>}
+              <div style={{ height: '300px', background: C.bgCard, borderRadius: '10px', padding: '1rem', overflowY: 'auto', border: `1px solid ${C.border}` }}>
+                <h3 style={{ color: C.gold, marginBottom: '1rem', fontSize: '0.95rem' }}>📜 {theme?.name}</h3>
+                {(game?.story || []).map((s, i) => (
+                  <div key={i} style={{ padding: '0.5rem 0', borderBottom: i < (game?.story?.length || 0) - 1 ? `1px solid ${C.border}20` : 'none' }}>
+                    {s.type === 'opening' && <p style={{ color: C.goldLight, fontStyle: 'italic', lineHeight: 1.6 }}>{s.text}</p>}
+                    {s.type === 'context' && <p style={{ color: C.accent, lineHeight: 1.6 }}><span style={{ background: `${C.accent}20`, padding: '0.15rem 0.4rem', borderRadius: '4px', marginRight: '0.4rem', fontSize: '0.8rem' }}>Round {s.round}</span>{s.text}</p>}
+                    {s.type === 'choice' && <p style={{ color: C.success, lineHeight: 1.6 }}>{s.winner === 'A' ? '🅰️' : '🅱️'} {s.text}</p>}
+                    {s.type === 'consequence' && <p style={{ color: C.muted, lineHeight: 1.6, paddingLeft: '1rem', borderLeft: `2px solid ${C.gold}30` }}>{s.text}</p>}
+                    {s.type === 'ending' && <p style={{ color: C.gold, lineHeight: 1.6, padding: '0.5rem', background: `${C.gold}10`, borderRadius: '8px' }}>🎬 {s.text}</p>}
+                  </div>
+                ))}
+              </div>
+              
+              {/* Options */}
+              {(game?.phase === 'debate' || game?.phase === 'vote') && opts.a && (
+                <div style={{ background: C.bgCard, borderRadius: '10px', padding: '1rem', border: `1px solid ${C.border}` }}>
+                  <h4 style={{ textAlign: 'center', marginBottom: '0.8rem', color: C.gold }}>⚔️ Choose</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    {[{ k: 'A', o: opts.a, c: C.optA }, { k: 'B', o: opts.b, c: C.optB }].map(({ k, o, c }) => (
+                      <div key={k} onClick={() => game?.phase === 'vote' && vote(k)} style={{ padding: '1rem', borderRadius: '8px', border: `2px solid ${myVote === k ? c : `${c}40`}`, background: `${c}10`, cursor: game?.phase === 'vote' && !myVote ? 'pointer' : 'default', opacity: myVote && myVote !== k ? 0.5 : 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}><span style={{ fontWeight: 700, color: c }}>Option {k}</span><span style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem', background: `${c}20`, borderRadius: '4px', color: c }}>{o?.tag}</span></div>
+                        <p style={{ lineHeight: 1.4, fontSize: '0.85rem' }}>{o?.text}</p>
+                        {game?.phase === 'vote' && <div style={{ marginTop: '0.6rem', textAlign: 'center', fontSize: '1.1rem', fontWeight: 600, color: C.gold }}>{Object.values(votes).filter(v => v === k).length} votes</div>}
+                        {myVote === k && <div style={{ textAlign: 'center', marginTop: '0.3rem', color: c, fontSize: '0.8rem' }}>✓ Voted</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Game End */}
+              {game?.phase === 'ended' && (
+                <div style={{ background: `linear-gradient(145deg, ${C.gold}15, ${C.bgCard})`, borderRadius: '10px', padding: '1.5rem', textAlign: 'center', border: `1px solid ${C.gold}40` }}>
+                  <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: C.gold }}>🏆 Chronicle Complete!</h2>
+                  <div style={{ maxWidth: '350px', margin: '0 auto 1rem' }}>
+                    {Object.entries(game?.scores || {}).map(([id, sc]) => ({ p: players.find(x => x.id === id), t: (sc.influence || 0) + (sc.debates || 0) })).sort((a, b) => b.t - a.t).map((r, i) => (
+                      <div key={r.p?.id || i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem', marginBottom: '0.3rem', background: i === 0 ? `${C.gold}20` : C.bgCard, borderRadius: '6px', border: i === 0 ? `1px solid ${C.gold}40` : 'none' }}>
+                        <span style={{ fontWeight: 700, color: i < 3 ? C.gold : C.muted }}>#{i + 1}</span>
+                        <span>{r.p?.avatar}</span>
+                        <span style={{ flex: 1 }}>{r.p?.name}</span>
+                        <span style={{ fontWeight: 600, color: C.gold }}>{r.t} pts</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={reset} style={{ padding: '0.6rem 1.5rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '8px', color: '#000', fontWeight: 600, cursor: 'pointer' }}>Back to Lobby</button>
+                </div>
+              )}
             </div>
+            
+            {/* Right: Chat */}
             <div style={{ width: '280px', display: 'flex', flexDirection: 'column', background: C.bgCard, borderRadius: '10px', overflow: 'hidden', border: `1px solid ${C.border}` }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', padding: '0.6rem', borderBottom: `1px solid ${C.border}` }}>{players.map(p => <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.2rem 0.5rem', background: votes[p.id] ? `${C.success}20` : C.bgLight, borderRadius: '12px', fontSize: '0.75rem', border: votes[p.id] ? `1px solid ${C.success}40` : 'none' }}><span>{p.avatar}</span><span style={{ maxWidth: '50px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>{votes[p.id] && <span style={{ color: C.success, fontWeight: 700 }}>{votes[p.id]}</span>}</div>)}</div>
-              <div style={{ flex: 1, overflowY: 'auto', padding: '0.6rem' }}>{msgs.map((m, i) => <div key={i} style={{ marginBottom: '0.5rem', fontSize: '0.8rem' }}>{m.type === 'system' ? <div style={{ color: C.gold, fontStyle: 'italic' }}>{m.text}</div> : <div style={{ background: C.bgLight, borderRadius: '6px', padding: '0.4rem 0.6rem' }}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}><span style={{ color: C.accent, fontWeight: 600 }}>{m.sender?.avatar} {m.sender?.name}</span>{m.choice && <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', background: m.choice === 'A' ? `${C.optA}30` : `${C.optB}30`, borderRadius: '3px', color: m.choice === 'A' ? C.optA : C.optB }}>{m.choice}</span>}</div><div>{m.text}</div></div>}</div>)}<div ref={msgsEndRef} /></div>
-              {game?.phase === 'debate' && <div style={{ padding: '0.6rem', borderTop: `1px solid ${C.border}` }}><div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.4rem' }}><input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitDebate()} placeholder="输入观点..." style={{ flex: 1, padding: '0.5rem', background: C.bgLight, border: `1px solid ${C.border}`, borderRadius: '6px', color: C.text, fontSize: '0.8rem', outline: 'none' }} /><button onClick={submitDebate} style={{ padding: '0.5rem 0.8rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '6px', color: '#000', fontWeight: 600, cursor: 'pointer' }}>发送</button></div><div style={{ display: 'flex', gap: '0.3rem' }}><button onClick={() => setInput('我支持A，因为')} style={{ padding: '0.2rem 0.5rem', background: `${C.optA}20`, border: `1px solid ${C.optA}30`, borderRadius: '10px', color: C.optA, fontSize: '0.7rem', cursor: 'pointer' }}>🅰️</button><button onClick={() => setInput('我支持B，因为')} style={{ padding: '0.2rem 0.5rem', background: `${C.optB}20`, border: `1px solid ${C.optB}30`, borderRadius: '10px', color: C.optB, fontSize: '0.7rem', cursor: 'pointer' }}>🅱️</button></div></div>}
-              {game?.phase === 'vote' && !myVote && <div style={{ padding: '0.8rem', textAlign: 'center', background: `${C.gold}15` }}><p style={{ color: C.accent, fontWeight: 600, fontSize: '0.9rem' }}>⏰ 请在左侧投票！</p></div>}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', padding: '0.6rem', borderBottom: `1px solid ${C.border}` }}>
+                {players.map(p => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.2rem 0.5rem', background: votes[p.id] ? `${C.success}20` : C.bgLight, borderRadius: '12px', fontSize: '0.75rem', border: votes[p.id] ? `1px solid ${C.success}40` : 'none' }}>
+                    <span>{p.avatar}</span>
+                    <span style={{ maxWidth: '50px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                    {votes[p.id] && <span style={{ color: C.success, fontWeight: 700 }}>{votes[p.id]}</span>}
+                  </div>
+                ))}
+              </div>
+              
+              <div style={{ flex: 1, height: '300px', overflowY: 'auto', padding: '0.6rem' }}>
+                {msgs.map((m, i) => (
+                  <div key={i} style={{ marginBottom: '0.5rem', fontSize: '0.8rem' }}>
+                    {m.type === 'system' ? (
+                      <div style={{ color: C.gold, fontStyle: 'italic' }}>{m.text}</div>
+                    ) : (
+                      <div style={{ background: C.bgLight, borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                          <span style={{ color: C.accent, fontWeight: 600 }}>{m.sender?.avatar} {m.sender?.name}</span>
+                          {m.choice && <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', background: m.choice === 'A' ? `${C.optA}30` : `${C.optB}30`, borderRadius: '3px', color: m.choice === 'A' ? C.optA : C.optB }}>{m.choice}</span>}
+                        </div>
+                        <div>{m.text}</div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div ref={msgsEndRef} />
+              </div>
+              
+              {game?.phase === 'debate' && (
+                <div style={{ padding: '0.6rem', borderTop: `1px solid ${C.border}` }}>
+                  <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.4rem' }}>
+                    <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitDebate()} placeholder="Share your view..." style={{ flex: 1, padding: '0.5rem', background: C.bgLight, border: `1px solid ${C.border}`, borderRadius: '6px', color: C.text, fontSize: '0.8rem', outline: 'none' }} />
+                    <button onClick={submitDebate} style={{ padding: '0.5rem 0.8rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '6px', color: '#000', fontWeight: 600, cursor: 'pointer' }}>Send</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.3rem' }}>
+                    <button onClick={() => setInput('I support A because ')} style={{ padding: '0.2rem 0.5rem', background: `${C.optA}20`, border: `1px solid ${C.optA}30`, borderRadius: '10px', color: C.optA, fontSize: '0.7rem', cursor: 'pointer' }}>🅰️ A</button>
+                    <button onClick={() => setInput('I support B because ')} style={{ padding: '0.2rem 0.5rem', background: `${C.optB}20`, border: `1px solid ${C.optB}30`, borderRadius: '10px', color: C.optB, fontSize: '0.7rem', cursor: 'pointer' }}>🅱️ B</button>
+                  </div>
+                </div>
+              )}
+              
+              {game?.phase === 'vote' && !myVote && (
+                <div style={{ padding: '0.8rem', textAlign: 'center', background: `${C.gold}15` }}>
+                  <p style={{ color: C.accent, fontWeight: 600, fontSize: '0.9rem' }}>⏰ Please vote on the left!</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
