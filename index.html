@@ -20,7 +20,7 @@
 <body>
   <div id="root"></div>
   <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+    const { useState, useEffect, useRef, useCallback } = React;
 
     const CONFIG = {
       ROOM_SIZE: { min: 2, max: 8 },
@@ -68,7 +68,7 @@
       const [view, setView] = useState('home');
       const [player, setPlayer] = useState({ id: '', name: '', avatar: '🎮', exp: 0 });
       const [roomId, setRoomId] = useState(null);
-      const [myRoomId, setMyRoomId] = useState(null);
+      const [activeGameId, setActiveGameId] = useState(null);
       const [roomData, setRoomData] = useState(null);
       const [players, setPlayers] = useState([]);
       const [game, setGame] = useState(null);
@@ -80,16 +80,19 @@
       const [lb, setLb] = useState([]);
       const [hist, setHist] = useState([]);
       const [loading, setLoading] = useState(false);
+      const [processingPhase, setProcessingPhase] = useState(false);
       const timerRef = useRef(null);
       const msgsEndRef = useRef(null);
       const roomChkRef = useRef(null);
+      const lastRoundRef = useRef(0);
 
       useEffect(() => {
         try {
           if (!firebase.apps.length) firebase.initializeApp(CONFIG.FIREBASE);
           const database = firebase.database();
           setDb(database);
-          // Leaderboard: group by wallet, sort by exp descending
+          
+          // Leaderboard
           database.ref('players').orderByChild('exp').on('value', s => {
             if (s.val()) {
               const list = Object.entries(s.val()).map(([id, p]) => ({ ...p, id })).filter(p => p.exp > 0).sort((a, b) => b.exp - a.exp);
@@ -97,28 +100,36 @@
             }
           });
         } catch (e) { console.error(e); }
+        
         const sw = localStorage.getItem('cc_wallet');
         const sp = localStorage.getItem('cc_player');
-        const sr = localStorage.getItem('cc_myroom');
+        const sg = localStorage.getItem('cc_activegame');
         if (sw && sp) { try { setWallet(sw); setPlayer(JSON.parse(sp)); } catch {} }
-        if (sr) setMyRoomId(sr);
-        if (window.ethereum && sw) { window.ethereum.request({ method: 'eth_accounts' }).then(a => { if (a[0]?.toLowerCase() === sw.toLowerCase()) setWallet(a[0]); }); }
-        return () => { if (timerRef.current) clearInterval(timerRef.current); if (roomChkRef.current) clearInterval(roomChkRef.current); };
+        if (sg) setActiveGameId(sg);
+        if (window.ethereum && sw) { 
+          window.ethereum.request({ method: 'eth_accounts' }).then(a => { 
+            if (a[0]?.toLowerCase() === sw.toLowerCase()) setWallet(a[0]); 
+          }); 
+        }
+        return () => { 
+          if (timerRef.current) clearInterval(timerRef.current); 
+          if (roomChkRef.current) clearInterval(roomChkRef.current); 
+        };
       }, []);
 
       // Load user history
       useEffect(() => {
         if (!db || !wallet) return;
-        db.ref('gameHistory').orderByChild('wallet').equalTo(wallet).on('value', s => {
+        db.ref('userHistory').child(wallet).orderByChild('timestamp').limitToLast(50).on('value', s => {
           if (s.val()) {
-            const list = Object.values(s.val()).sort((a, b) => b.timestamp - a.timestamp);
-            setHist(list);
+            setHist(Object.values(s.val()).sort((a, b) => b.timestamp - a.timestamp));
           } else {
             setHist([]);
           }
         });
       }, [db, wallet]);
 
+      // Load available rooms
       useEffect(() => {
         if (!db) return;
         db.ref('rooms').on('value', s => {
@@ -126,42 +137,69 @@
           if (d) {
             const r = [];
             Object.entries(d).forEach(([id, rm]) => {
-              if (rm.status === 'waiting' && (now - rm.createdAt) < CONFIG.ROOM_TIMEOUT_CLOSE) r.push({ id, ...rm });
-              if (rm.status === 'waiting' && (now - rm.createdAt) > CONFIG.ROOM_TIMEOUT_CLOSE) db.ref(`rooms/${id}`).update({ status: 'closed' });
+              if (rm.status === 'waiting' && (now - rm.createdAt) < CONFIG.ROOM_TIMEOUT_CLOSE) {
+                r.push({ id, ...rm });
+              }
+              if (rm.status === 'waiting' && (now - rm.createdAt) > CONFIG.ROOM_TIMEOUT_CLOSE) {
+                db.ref(`rooms/${id}`).update({ status: 'closed' });
+              }
             });
             setRooms(r);
           } else setRooms([]);
         });
       }, [db]);
 
+      // Listen to current room/game
       useEffect(() => {
         if (!db || !roomId) return;
         const rRef = db.ref(`rooms/${roomId}`);
         const gRef = db.ref(`games/${roomId}`);
-        rRef.on('value', s => {
+        
+        const roomHandler = s => {
           const d = s.val();
           if (d) {
             setRoomData(d);
             if (d.players) setPlayers(Object.values(d.players));
-            if (d.status === 'closed') { alert('Room closed'); reset(); }
-            if (d.status === 'playing' && view !== 'game') { setView('game'); setMyVote(null); }
+            if (d.status === 'closed') { 
+              alert('Room closed'); 
+              reset(); 
+            }
+            if (d.status === 'playing' && view !== 'game') { 
+              setView('game'); 
+              setMyVote(null); 
+            }
           }
-        });
-        gRef.on('value', s => {
+        };
+        
+        const gameHandler = s => {
           const d = s.val();
           if (d) {
             setGame(d);
-            if (d.messages) setMsgs(Object.values(d.messages).sort((a, b) => a.timestamp - b.timestamp));
-            if (d.phase === 'debate') setMyVote(null);
-            if (d.timerEnd && d.phase !== 'ended') setTimer(Math.max(0, Math.floor((d.timerEnd - Date.now()) / 1000)));
+            if (d.messages) {
+              setMsgs(Object.values(d.messages).sort((a, b) => a.timestamp - b.timestamp));
+            }
+            // Reset vote when round changes
+            if (d.round !== lastRoundRef.current) {
+              lastRoundRef.current = d.round;
+              setMyVote(null);
+            }
+            if (d.timerEnd && d.phase !== 'ended') {
+              setTimer(Math.max(0, Math.floor((d.timerEnd - Date.now()) / 1000)));
+            }
           }
-        });
-        return () => { rRef.off(); gRef.off(); };
+        };
+        
+        rRef.on('value', roomHandler);
+        gRef.on('value', gameHandler);
+        
+        return () => { rRef.off('value', roomHandler); gRef.off('value', gameHandler); };
       }, [db, roomId, view]);
 
+      // AI auto-fill
       useEffect(() => {
         if (!db || !roomId || !roomData || roomData.status !== 'waiting') return;
         if (roomChkRef.current) clearInterval(roomChkRef.current);
+        
         roomChkRef.current = setInterval(() => {
           const age = Date.now() - roomData.createdAt;
           const realCnt = Object.values(roomData.players || {}).filter(p => !p.isAI).length;
@@ -172,21 +210,30 @@
             });
           }
         }, 5000);
+        
         return () => { if (roomChkRef.current) clearInterval(roomChkRef.current); };
       }, [db, roomId, roomData, player.id]);
 
+      // Timer
       useEffect(() => {
         if (!game?.timerEnd || game?.phase === 'ended') return;
         if (timerRef.current) clearInterval(timerRef.current);
+        
         timerRef.current = setInterval(() => {
           const rem = Math.max(0, Math.floor((game.timerEnd - Date.now()) / 1000));
           setTimer(rem);
-          if (rem <= 0 && player.id === roomData?.host) phaseEnd();
+          if (rem <= 0 && player.id === roomData?.host && !processingPhase) {
+            phaseEnd();
+          }
         }, 1000);
+        
         return () => { if (timerRef.current) clearInterval(timerRef.current); };
-      }, [game?.timerEnd, game?.phase, player.id, roomData?.host]);
+      }, [game?.timerEnd, game?.phase, player.id, roomData?.host, processingPhase]);
 
-      useEffect(() => { msgsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
+      // Auto scroll messages
+      useEffect(() => { 
+        msgsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+      }, [msgs]);
 
       const connectWallet = async () => {
         if (!window.ethereum) { alert('Please install MetaMask'); return null; }
@@ -215,39 +262,60 @@
       const disconnect = () => { 
         setWallet(null); 
         setPlayer({ id: '', name: '', avatar: '🎮', exp: 0 }); 
-        setMyRoomId(null);
+        setActiveGameId(null);
         localStorage.removeItem('cc_wallet'); 
         localStorage.removeItem('cc_player'); 
-        localStorage.removeItem('cc_myroom');
+        localStorage.removeItem('cc_activegame');
       };
 
       const payFee = async (addr) => {
         if (!window.ethereum) return false;
         setLoading(true);
         try { 
-          await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: addr, to: CONFIG.GENLAYER_CONTRACT, value: '0x0', data: '0x' }] }); 
+          await window.ethereum.request({ 
+            method: 'eth_sendTransaction', 
+            params: [{ from: addr, to: CONFIG.GENLAYER_CONTRACT, value: '0x0', data: '0x' }] 
+          }); 
           return true; 
         } catch (e) { 
-          alert(e.code === 4001 ? 'User cancelled' : 'Transaction failed'); 
+          console.log('Transaction cancelled or failed:', e.message);
           return false; 
-        } finally { setLoading(false); }
+        } finally { 
+          setLoading(false); 
+        }
       };
 
       const recordToGL = async () => {
         if (!wallet || !window.ethereum) return;
-        try { await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: wallet, to: CONFIG.GENLAYER_CONTRACT, value: '0x0', data: '0x01' }] }); } catch {}
+        try { 
+          await window.ethereum.request({ 
+            method: 'eth_sendTransaction', 
+            params: [{ from: wallet, to: CONFIG.GENLAYER_CONTRACT, value: '0x0', data: '0x01' }] 
+          }); 
+        } catch {}
       };
 
       const createRoom = async (theme) => {
         if (!db || !player.name) { alert('Please enter your name first'); return; }
         let addr = wallet;
         if (!addr) { addr = await connectWallet(); if (!addr) return; }
-        if (!await payFee(addr)) return;
+        
+        // Payment required for new room
+        const paid = await payFee(addr);
+        if (!paid) return;
+        
         const rid = `room_${Date.now()}`;
-        await db.ref(`rooms/${rid}`).set({ theme, host: addr, status: 'waiting', createdAt: Date.now(), players: { [addr]: { id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false } } });
+        await db.ref(`rooms/${rid}`).set({ 
+          theme, 
+          host: addr, 
+          status: 'waiting', 
+          createdAt: Date.now(), 
+          players: { [addr]: { id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false } } 
+        });
+        
         setRoomId(rid); 
-        setMyRoomId(rid);
-        localStorage.setItem('cc_myroom', rid);
+        setActiveGameId(rid);
+        localStorage.setItem('cc_activegame', rid);
         setView('room');
       };
 
@@ -256,141 +324,251 @@
         let addr = wallet;
         if (!addr) { addr = await connectWallet(); if (!addr) return; }
         
-        // If rejoining own room, no payment needed
-        if (rid === myRoomId) {
-          const roomSnap = await db.ref(`rooms/${rid}`).once('value');
-          const roomVal = roomSnap.val();
-          if (roomVal && roomVal.status === 'waiting') {
-            await db.ref(`rooms/${rid}/players/${addr}`).set({ id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false });
-            setRoomId(rid);
-            setView('room');
-            return;
-          }
-        }
+        // Payment required to join
+        const paid = await payFee(addr);
+        if (!paid) return;
         
-        // Otherwise need payment
-        if (!await payFee(addr)) return;
-        await db.ref(`rooms/${rid}/players/${addr}`).set({ id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false });
+        await db.ref(`rooms/${rid}/players/${addr}`).set({ 
+          id: addr, 
+          name: player.name, 
+          avatar: player.avatar, 
+          exp: player.exp, 
+          isAI: false 
+        });
+        
         setRoomId(rid);
+        setActiveGameId(rid);
+        localStorage.setItem('cc_activegame', rid);
         setView('room');
+      };
+
+      const rejoinGame = async (gid) => {
+        if (!db) return;
+        const roomSnap = await db.ref(`rooms/${gid}`).once('value');
+        const roomVal = roomSnap.val();
+        if (roomVal && (roomVal.status === 'waiting' || roomVal.status === 'playing')) {
+          setRoomId(gid);
+          setView(roomVal.status === 'playing' ? 'game' : 'room');
+        } else {
+          setActiveGameId(null);
+          localStorage.removeItem('cc_activegame');
+          alert('Game no longer available');
+        }
       };
 
       const addAI = async () => {
         if (!db || !roomId) return;
         const curIds = Object.keys(roomData?.players || {});
-        AI_PLAYERS.filter(ai => !curIds.includes(ai.id)).slice(0, Math.min(3, CONFIG.ROOM_SIZE.max - curIds.length)).forEach(ai => db.ref(`rooms/${roomId}/players/${ai.id}`).set(ai));
+        const ais = AI_PLAYERS.filter(ai => !curIds.includes(ai.id)).slice(0, Math.min(3, CONFIG.ROOM_SIZE.max - curIds.length));
+        for (const ai of ais) {
+          await db.ref(`rooms/${roomId}/players/${ai.id}`).set(ai);
+        }
       };
 
       const startGame = async () => {
         if (!db || !roomId || players.length < CONFIG.ROOM_SIZE.min) return;
+        
         await db.ref(`rooms/${roomId}`).update({ status: 'playing' });
+        
         const theme = roomData?.theme || 'fantasy';
         const arc = THEMES[theme];
-        const scores = {}; players.forEach(p => { scores[p.id] = { influence: 0, debates: 0, wins: 0 }; });
-        await db.ref(`games/${roomId}`).set({ round: 1, phase: 'debate', path: [], scores, votes: {}, story: [{ text: arc.opening, type: 'opening', round: 0 }], timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000, messages: {} });
+        const scores = {}; 
+        players.forEach(p => { scores[p.id] = { influence: 0, debates: 0, wins: 0 }; });
+        
+        await db.ref(`games/${roomId}`).set({ 
+          round: 1, 
+          phase: 'debate', 
+          path: [], 
+          scores, 
+          votes: {}, 
+          story: [{ text: arc.opening, type: 'opening', round: 0 }], 
+          timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000, 
+          messages: {} 
+        });
+        
+        lastRoundRef.current = 1;
         addMsg('system', `📖 ${arc.name} begins! Round 1/${CONFIG.TOTAL_ROUNDS} - Debate`);
         setTimeout(() => aiDebate(), 3000);
       };
 
       const aiDebate = () => {
         players.filter(p => p.isAI).forEach((ai, i) => {
-          setTimeout(() => { const d = genAIDebate(ai.style); addMsg('chat', d.text, ai, d.choice); }, (i + 1) * 3000 + Math.random() * 5000);
+          setTimeout(() => { 
+            const d = genAIDebate(ai.style); 
+            addMsg('chat', d.text, ai, d.choice); 
+          }, (i + 1) * 3000 + Math.random() * 5000);
         });
       };
 
       const phaseEnd = async () => {
-        if (!db || !roomId || !game) return;
-        if (game.phase === 'debate') {
-          await db.ref(`games/${roomId}`).update({ phase: 'vote', timerEnd: Date.now() + CONFIG.VOTE_DURATION * 1000, votes: {} });
-          addMsg('system', '🗳️ Voting begins! All players please vote!');
-          players.filter(p => p.isAI).forEach((ai, i) => { setTimeout(() => db.ref(`games/${roomId}/votes/${ai.id}`).set(Math.random() > 0.5 ? 'A' : 'B'), (i + 1) * 2000); });
-        } else if (game.phase === 'vote') { await calcResult(); }
+        if (!db || !roomId || !game || processingPhase) return;
+        setProcessingPhase(true);
+        
+        try {
+          if (game.phase === 'debate') {
+            // Switch to vote phase
+            await db.ref(`games/${roomId}`).update({ 
+              phase: 'vote', 
+              timerEnd: Date.now() + CONFIG.VOTE_DURATION * 1000,
+              votes: {}
+            });
+            addMsg('system', '🗳️ Voting begins! All players please vote!');
+            
+            // AI votes
+            players.filter(p => p.isAI).forEach((ai, i) => { 
+              setTimeout(async () => {
+                const choice = Math.random() > 0.5 ? 'A' : 'B';
+                await db.ref(`games/${roomId}/votes/${ai.id}`).set(choice);
+              }, (i + 1) * 1000); 
+            });
+          } else if (game.phase === 'vote') { 
+            await calcResult(); 
+          }
+        } finally {
+          setProcessingPhase(false);
+        }
       };
 
       const calcResult = async () => {
         if (!db || !roomId || !game) return;
-        const votes = game.votes || {};
-        const cnt = { A: 0, B: 0 }; Object.values(votes).forEach(v => { if (v) cnt[v]++; });
+        
+        // Wait a moment for all votes to sync
+        await new Promise(r => setTimeout(r, 500));
+        
+        // Read votes from database
+        const votesSnap = await db.ref(`games/${roomId}/votes`).once('value');
+        const currentVotes = votesSnap.val() || {};
+        
+        const cnt = { A: 0, B: 0 }; 
+        Object.values(currentVotes).forEach(v => { 
+          if (v === 'A') cnt.A++;
+          else if (v === 'B') cnt.B++;
+        });
+        
         const winner = cnt.A >= cnt.B ? 'A' : 'B';
         const round = game.round;
         const theme = roomData?.theme || 'fantasy';
         const arc = THEMES[theme];
         const rd = arc.rounds[round - 1];
         const winOpt = winner === 'A' ? rd?.a : rd?.b;
-        const newScores = { ...game.scores };
-        Object.entries(votes).forEach(([id, v]) => { if (v === winner && newScores[id]) { newScores[id].influence = (newScores[id].influence || 0) + 30; newScores[id].wins = (newScores[id].wins || 0) + 1; } });
+        
+        // Read current scores
+        const scoresSnap = await db.ref(`games/${roomId}/scores`).once('value');
+        const newScores = scoresSnap.val() || {};
+        
+        Object.entries(currentVotes).forEach(([id, v]) => { 
+          if (v === winner && newScores[id]) { 
+            newScores[id].influence = (newScores[id].influence || 0) + 30; 
+            newScores[id].wins = (newScores[id].wins || 0) + 1; 
+          } 
+        });
+        
         const newPath = [...(game.path || []), winner];
-        const newStory = [...(game.story || []), { text: `[Vote Result] Option ${winner} (${cnt[winner]} votes)`, type: 'choice', round, winner }, { text: `Chose "${winOpt?.tag}": ${winOpt?.text}`, type: 'consequence', round }];
+        const newStory = [...(game.story || []), 
+          { text: `[Vote Result] Option ${winner} wins (${cnt[winner]} vs ${cnt[winner === 'A' ? 'B' : 'A']})`, type: 'choice', round, winner }, 
+          { text: `Chose "${winOpt?.tag}": ${winOpt?.text}`, type: 'consequence', round }
+        ];
+        
         addMsg('system', `📜 Option ${winner} wins! (${cnt[winner]} votes)`);
 
         if (round >= CONFIG.TOTAL_ROUNDS) {
+          // Game ends
           const ending = arc.endings.default;
-          await db.ref(`games/${roomId}`).update({ phase: 'ended', scores: newScores, path: newPath, story: [...newStory, { text: ending, type: 'ending', round }], timerEnd: null });
+          await db.ref(`games/${roomId}`).update({ 
+            phase: 'ended', 
+            scores: newScores, 
+            path: newPath, 
+            story: [...newStory, { text: ending, type: 'ending', round }], 
+            timerEnd: null, 
+            votes: {} 
+          });
+          
           addMsg('system', '🏆 Chronicle Complete!');
           await recordToGL();
           
-          // Count real players and AI
           const realCount = players.filter(p => !p.isAI).length;
           const aiCount = players.filter(p => p.isAI).length;
           
-          // Save history for each real player
-          players.filter(p => !p.isAI).forEach(p => {
-            db.ref('gameHistory').push().set({ 
-              id: Date.now(), 
-              timestamp: Date.now(), 
-              theme, 
-              path: newPath.join(''), 
-              ending: ending.slice(0, 80) + '...', 
-              datetime: new Date().toISOString(),
-              realPlayers: realCount,
-              aiPlayers: aiCount,
-              roomId,
-              wallet: p.id
-            });
-          });
-          
-          // Update exp for real players
-          Object.entries(newScores).forEach(([pid, sc]) => {
+          // Save history and update EXP
+          for (const [pid, sc] of Object.entries(newScores)) {
             const p = players.find(x => x.id === pid);
             if (p && !p.isAI) {
-              const total = (sc.influence || 0) + (sc.debates || 0);
-              if (total > 0) {
-                db.ref(`players/${pid}`).once('value').then(snap => {
-                  const cur = snap.val()?.exp || 0;
-                  const newExp = cur + total;
-                  db.ref(`players/${pid}`).update({ name: p.name, avatar: p.avatar, exp: newExp });
-                  if (pid === player.id) { 
-                    setPlayer(prev => ({ ...prev, exp: newExp })); 
-                    localStorage.setItem('cc_player', JSON.stringify({ ...player, exp: newExp })); 
-                  }
-                });
+              const earnedExp = (sc.influence || 0) + (sc.debates || 0);
+              
+              await db.ref(`userHistory/${pid}`).push().set({ 
+                id: Date.now(), 
+                timestamp: Date.now(), 
+                theme, 
+                path: newPath.join(''), 
+                ending: ending.slice(0, 80) + '...', 
+                datetime: new Date().toISOString(),
+                realPlayers: realCount,
+                aiPlayers: aiCount,
+                earnedExp: earnedExp,
+                roomId
+              });
+              
+              if (earnedExp > 0) {
+                const playerSnap = await db.ref(`players/${pid}`).once('value');
+                const curExp = playerSnap.val()?.exp || 0;
+                const newExp = curExp + earnedExp;
+                await db.ref(`players/${pid}`).update({ name: p.name, avatar: p.avatar, exp: newExp });
+                
+                if (pid === player.id) { 
+                  setPlayer(prev => ({ ...prev, exp: newExp })); 
+                  localStorage.setItem('cc_player', JSON.stringify({ ...player, exp: newExp })); 
+                }
               }
             }
-          });
+          }
           
-          // Clear my room after game ends
-          setMyRoomId(null);
-          localStorage.removeItem('cc_myroom');
+          setActiveGameId(null);
+          localStorage.removeItem('cc_activegame');
         } else {
+          // Next round
           const nextRd = round + 1;
           const nextCtx = arc.rounds[nextRd - 1]?.context || 'The story continues...';
-          await db.ref(`games/${roomId}`).update({ round: nextRd, phase: 'debate', scores: newScores, path: newPath, story: [...newStory, { text: nextCtx, type: 'context', round: nextRd }], timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000, votes: {} });
+          
+          await db.ref(`games/${roomId}`).update({ 
+            round: nextRd, 
+            phase: 'debate', 
+            scores: newScores, 
+            path: newPath, 
+            story: [...newStory, { text: nextCtx, type: 'context', round: nextRd }], 
+            timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000, 
+            votes: {} 
+          });
+          
           addMsg('system', `📖 Round ${nextRd}/${CONFIG.TOTAL_ROUNDS} - Debate`);
+          setMyVote(null);
           setTimeout(() => aiDebate(), 3000);
         }
       };
 
-      const addMsg = async (type, text, sender = null, choice = null) => { if (db && roomId) await db.ref(`games/${roomId}/messages`).push().set({ type, text, sender, choice, timestamp: Date.now() }); };
+      const addMsg = async (type, text, sender = null, choice = null) => { 
+        if (db && roomId) {
+          await db.ref(`games/${roomId}/messages`).push().set({ 
+            type, text, sender, choice, timestamp: Date.now() 
+          }); 
+        }
+      };
       
       const submitDebate = async () => {
         if (!input.trim() || game?.phase !== 'debate') return;
         const c = input.toUpperCase().includes('A') ? 'A' : input.toUpperCase().includes('B') ? 'B' : null;
         await addMsg('chat', input, { id: player.id, name: player.name, avatar: player.avatar }, c);
         setInput('');
-        if (game?.scores?.[player.id] !== undefined) await db.ref(`games/${roomId}/scores/${player.id}/debates`).set((game.scores[player.id].debates || 0) + 10);
+        
+        const curDebates = game?.scores?.[player.id]?.debates || 0;
+        await db.ref(`games/${roomId}/scores/${player.id}/debates`).set(curDebates + 10);
       };
       
-      const vote = async (c) => { if (game?.phase !== 'vote' || myVote) return; setMyVote(c); await db.ref(`games/${roomId}/votes/${player.id}`).set(c); };
+      const vote = async (c) => { 
+        if (game?.phase !== 'vote' || myVote) return; 
+        setMyVote(c);
+        await db.ref(`games/${roomId}/votes/${player.id}`).set(c);
+        addMsg('system', `${player.name} voted for Option ${c}`);
+      };
       
       const reset = () => { 
         if (timerRef.current) clearInterval(timerRef.current); 
@@ -401,12 +579,28 @@
         setPlayers([]); 
         setMsgs([]); 
         setMyVote(null); 
+        lastRoundRef.current = 0;
+        setProcessingPhase(false);
         setView('home'); 
+      };
+
+      const clearHistory = async () => {
+        if (!db || !wallet) return;
+        if (confirm('Clear all your game history?')) {
+          await db.ref(`userHistory/${wallet}`).remove();
+          setHist([]);
+        }
       };
       
       const fmtTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
       const shortAddr = a => a ? `${a.slice(0, 6)}...${a.slice(-4)}` : '';
-      const getOpts = () => { if (!game || !roomData) return { a: null, b: null }; const rd = THEMES[roomData.theme]?.rounds[(game.round || 1) - 1]; return { a: rd?.a, b: rd?.b }; };
+      
+      const getOpts = () => { 
+        if (!game || !roomData) return { a: null, b: null }; 
+        const rd = THEMES[roomData.theme]?.rounds[(game.round || 1) - 1]; 
+        return { a: rd?.a, b: rd?.b }; 
+      };
+      
       const opts = getOpts();
       const votes = game?.votes || {};
       const theme = roomData?.theme ? THEMES[roomData.theme] : THEMES.fantasy;
@@ -419,19 +613,14 @@
             <div style={{ color: C.text, lineHeight: 1.8 }}>
               <h3 style={{ color: C.goldLight, marginBottom: '0.5rem' }}>🎯 Objective</h3>
               <p style={{ marginBottom: '1rem', color: C.muted }}>Complete 5 rounds of story decisions with other players. Influence the story through debate and voting to earn the highest score!</p>
-              
               <h3 style={{ color: C.goldLight, marginBottom: '0.5rem' }}>🔗 Entry Rules</h3>
-              <p style={{ marginBottom: '1rem', color: C.muted }}>• Connect MetaMask wallet to create/join rooms<br/>• Confirm GenLayer transaction (0 GEN fee)<br/>• Transaction failure prevents room creation/joining</p>
-              
+              <p style={{ marginBottom: '1rem', color: C.muted }}>• Connect MetaMask wallet to create/join rooms<br/>• Confirm GenLayer transaction (0 GEN fee)<br/>• Each room creation/join requires a new transaction</p>
               <h3 style={{ color: C.goldLight, marginBottom: '0.5rem' }}>⏰ Room Rules</h3>
               <p style={{ marginBottom: '1rem', color: C.muted }}>• Minimum 2 players, maximum 8 players<br/>• AI auto-fills after 1 minute if no one joins<br/>• Room auto-closes after 2 minutes if not started</p>
-              
               <h3 style={{ color: C.goldLight, marginBottom: '0.5rem' }}>🎮 Game Flow</h3>
               <p style={{ marginBottom: '1rem', color: C.muted }}>• <b>Debate Phase (60s)</b>: Read background, share opinions in chat<br/>• <b>Vote Phase (20s)</b>: All players choose A or B<br/>• <b>Result</b>: Majority vote determines story direction<br/>• 5 rounds total, story branches based on choices</p>
-              
               <h3 style={{ color: C.goldLight, marginBottom: '0.5rem' }}>⭐ Scoring</h3>
-              <p style={{ marginBottom: '1rem', color: C.muted }}>• Submit debate opinion: +10 points<br/>• Vote for winning option: +30 points<br/>• Points accumulate to player EXP</p>
-              
+              <p style={{ marginBottom: '1rem', color: C.muted }}>• Submit debate opinion: +10 EXP<br/>• Vote for winning option: +30 EXP<br/>• Points accumulate to player total EXP</p>
               <h3 style={{ color: C.goldLight, marginBottom: '0.5rem' }}>📊 Data Storage</h3>
               <p style={{ color: C.muted }}>• Real-time data: Firebase<br/>• Final results: GenLayer blockchain</p>
             </div>
@@ -445,7 +634,10 @@
         <div style={{ minHeight: '100vh', background: C.bg, color: C.text }}>
           <RulesModal />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: `1px solid ${C.border}`, background: C.bgLight }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}><span style={{ fontSize: '1.3rem' }}>📜</span><span style={{ fontSize: '1.1rem', fontWeight: 700, color: C.gold }}>Consensus Chronicle</span></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+              <span style={{ fontSize: '1.3rem' }}>📜</span>
+              <span style={{ fontSize: '1.1rem', fontWeight: 700, color: C.gold }}>Consensus Chronicle</span>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               {player.name && <span style={{ color: C.muted, fontSize: '0.9rem' }}>{player.avatar} {player.name} • ⭐{player.exp}</span>}
               {wallet ? (
@@ -487,25 +679,22 @@
                       <p style={{ color: C.gold }}>⚡ Creating/Joining requires GenLayer transaction (0 GEN)</p>
                     </div>
                     
-                    {/* My Room - can rejoin without payment */}
-                    {myRoomId && rooms.find(r => r.id === myRoomId) && (
-                      <div style={{ marginBottom: '2rem', padding: '1rem', background: `${C.gold}15`, borderRadius: '10px', border: `1px solid ${C.gold}40` }}>
-                        <h3 style={{ color: C.gold, marginBottom: '0.5rem' }}>🏠 Your Room</h3>
+                    {/* Active Game */}
+                    {activeGameId && (
+                      <div style={{ marginBottom: '2rem', padding: '1rem', background: `${C.success}15`, borderRadius: '10px', border: `1px solid ${C.success}40` }}>
+                        <h3 style={{ color: C.success, marginBottom: '0.5rem' }}>🎮 Active Game</h3>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                            <span style={{ fontSize: '1.5rem' }}>{THEMES[rooms.find(r => r.id === myRoomId)?.theme]?.icon}</span>
-                            <span>{THEMES[rooms.find(r => r.id === myRoomId)?.theme]?.name}</span>
-                          </div>
-                          <button onClick={() => joinRoom(myRoomId)} style={{ padding: '0.5rem 1.5rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '8px', color: '#000', fontWeight: 600, cursor: 'pointer' }}>Rejoin (Free)</button>
+                          <span style={{ color: C.muted }}>You have an ongoing game</span>
+                          <button onClick={() => rejoinGame(activeGameId)} style={{ padding: '0.5rem 1.5rem', background: `linear-gradient(135deg, ${C.success}, #22c55e)`, border: 'none', borderRadius: '8px', color: '#000', fontWeight: 600, cursor: 'pointer' }}>Rejoin (Free)</button>
                         </div>
                       </div>
                     )}
                     
                     {/* Available Rooms */}
-                    {rooms.filter(r => r.id !== myRoomId).length > 0 && (
+                    {rooms.length > 0 && (
                       <div style={{ marginBottom: '2rem' }}>
                         <h3 style={{ color: C.gold, marginBottom: '1rem' }}>🚪 Available Rooms</h3>
-                        {rooms.filter(r => r.id !== myRoomId).map(r => (
+                        {rooms.map(r => (
                           <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', marginBottom: '0.5rem', background: C.bgCard, borderRadius: '10px', border: `1px solid ${C.border}` }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                               <span style={{ fontSize: '1.5rem' }}>{THEMES[r.theme]?.icon}</span>
@@ -535,10 +724,9 @@
               </>
             )}
             
-            {/* Leaderboard - by user ID, sorted by total EXP */}
             {tab === 'leaderboard' && (
               <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-                <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: C.gold }}>🏆 Leaderboard (by Total EXP)</h2>
+                <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: C.gold }}>🏆 Leaderboard (Total EXP)</h2>
                 {lb.length === 0 ? (
                   <p style={{ textAlign: 'center', color: C.muted, padding: '3rem' }}>No records yet</p>
                 ) : (
@@ -553,7 +741,6 @@
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <div style={{ fontWeight: 700, color: C.gold, fontSize: '1.2rem' }}>⭐ {e.exp}</div>
-                          <div style={{ fontSize: '0.7rem', color: C.muted }}>Total EXP</div>
                         </div>
                       </div>
                     ))}
@@ -562,10 +749,14 @@
               </div>
             )}
             
-            {/* History - only current user, time to seconds */}
             {tab === 'history' && (
               <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-                <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: C.gold }}>📚 Your Game History</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h2 style={{ color: C.gold }}>📚 Your Game History</h2>
+                  {hist.length > 0 && (
+                    <button onClick={clearHistory} style={{ padding: '0.4rem 0.8rem', background: `${C.error}20`, border: `1px solid ${C.error}40`, borderRadius: '6px', color: C.error, fontSize: '0.8rem', cursor: 'pointer' }}>Clear All</button>
+                  )}
+                </div>
                 {!wallet ? (
                   <p style={{ textAlign: 'center', color: C.muted, padding: '3rem' }}>Please connect wallet to view history</p>
                 ) : hist.length === 0 ? (
@@ -579,7 +770,9 @@
                           <span style={{ fontSize: '0.8rem', color: C.muted }}>{new Date(g.timestamp).toLocaleString()}</span>
                         </div>
                         <div style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '0.5rem' }}>
-                          Players: {g.realPlayers || 1} real + {g.aiPlayers || 0} AI | Path: {g.path?.split('').map((c, j) => (
+                          Players: {g.realPlayers || 1} real + {g.aiPlayers || 0} AI | 
+                          <span style={{ color: C.accent, fontWeight: 600 }}> +{g.earnedExp || 0} EXP</span> | 
+                          Path: {g.path?.split('').map((c, j) => (
                             <span key={j} style={{ padding: '0.1rem 0.4rem', margin: '0 0.2rem', background: c === 'A' ? `${C.optA}30` : `${C.optB}30`, borderRadius: '4px', color: c === 'A' ? C.optA : C.optB }}>{c}</span>
                           ))}
                         </div>
@@ -605,7 +798,11 @@
               <span style={{ color: C.muted, fontSize: '0.9rem' }}>{player.avatar} {player.name} • ⭐{player.exp}</span>
             </div>
             <div style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem' }}>
-              <div style={{ textAlign: 'center', marginBottom: '2rem' }}><span style={{ fontSize: '4rem' }}>{theme?.icon}</span><h2 style={{ color: C.gold, marginTop: '0.5rem' }}>{theme?.name}</h2><p style={{ color: C.muted }}>{age}s</p></div>
+              <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <span style={{ fontSize: '4rem' }}>{theme?.icon}</span>
+                <h2 style={{ color: C.gold, marginTop: '0.5rem' }}>{theme?.name}</h2>
+                <p style={{ color: C.muted }}>{age}s</p>
+              </div>
               {age > 60 && <div style={{ textAlign: 'center', marginBottom: '1rem', padding: '0.8rem', background: `${C.accent}15`, borderRadius: '8px', color: C.accent }}>⏰ Over 1 min, AI will auto-join</div>}
               <h3 style={{ color: C.muted, marginBottom: '1rem' }}>Players ({players.length}/{CONFIG.ROOM_SIZE.max})</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
@@ -633,54 +830,78 @@
 
       // GAME VIEW
       return (
-        <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', color: C.text }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 2rem', background: C.bgLight, borderBottom: `1px solid ${C.border}` }}>
-            <button onClick={reset} style={{ padding: '0.4rem 0.8rem', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '6px', color: C.muted, cursor: 'pointer', fontSize: '0.8rem' }}>← Exit</button>
-            <div><div style={{ fontSize: '0.8rem', color: C.muted, textAlign: 'center' }}>Round {game?.round || 1}/{CONFIG.TOTAL_ROUNDS}</div><div style={{ fontWeight: 600, color: C.gold, textAlign: 'center' }}>{game?.phase === 'debate' && '💬 Debate'}{game?.phase === 'vote' && '🗳️ Vote'}{game?.phase === 'ended' && '🏆 Ended'}</div></div>
-            <div style={{ fontSize: '2rem', fontWeight: 700, fontFamily: 'monospace', color: timer <= 10 && game?.phase !== 'ended' ? C.error : C.gold }}>{game?.phase === 'ended' ? '--:--' : fmtTime(timer)}</div>
-            <div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem', color: C.muted }}>Score</div><div style={{ fontSize: '1.3rem', fontWeight: 700, color: C.accent }}>{(game?.scores?.[player.id]?.influence || 0) + (game?.scores?.[player.id]?.debates || 0)}</div></div>
+        <div style={{ height: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', color: C.text, overflow: 'hidden' }}>
+          {/* Header - 60px fixed */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 1.5rem', background: C.bgLight, borderBottom: `1px solid ${C.border}`, height: '60px', flexShrink: 0 }}>
+            <button onClick={reset} style={{ padding: '0.3rem 0.6rem', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '6px', color: C.muted, cursor: 'pointer', fontSize: '0.75rem' }}>← Exit</button>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: C.muted, textAlign: 'center' }}>Round {game?.round || 1}/{CONFIG.TOTAL_ROUNDS}</div>
+              <div style={{ fontWeight: 600, color: C.gold, textAlign: 'center', fontSize: '0.9rem' }}>
+                {game?.phase === 'debate' && '💬 Debate'}
+                {game?.phase === 'vote' && '🗳️ Vote'}
+                {game?.phase === 'ended' && '🏆 Ended'}
+              </div>
+            </div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 700, fontFamily: 'monospace', color: timer <= 10 && game?.phase !== 'ended' ? C.error : C.gold }}>
+              {game?.phase === 'ended' ? '--:--' : fmtTime(timer)}
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '0.7rem', color: C.muted }}>Score</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: C.accent }}>
+                {(game?.scores?.[player.id]?.influence || 0) + (game?.scores?.[player.id]?.debates || 0)}
+              </div>
+            </div>
           </div>
           
-          <div style={{ flex: 1, display: 'flex', gap: '1rem', padding: '1rem', overflow: 'hidden' }}>
-            {/* Left: Story */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
-              <div style={{ height: '300px', background: C.bgCard, borderRadius: '10px', padding: '1rem', overflowY: 'auto', border: `1px solid ${C.border}` }}>
-                <h3 style={{ color: C.gold, marginBottom: '1rem', fontSize: '0.95rem' }}>📜 {theme?.name}</h3>
+          {/* Main Content - fills remaining height */}
+          <div style={{ flex: 1, display: 'flex', gap: '0.8rem', padding: '0.8rem', minHeight: 0 }}>
+            {/* Left Side */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.8rem', minWidth: 0 }}>
+              {/* Story Panel - flexible height */}
+              <div style={{ flex: 1, background: C.bgCard, borderRadius: '10px', padding: '0.8rem', overflowY: 'auto', border: `1px solid ${C.border}`, minHeight: 0 }}>
+                <h3 style={{ color: C.gold, marginBottom: '0.8rem', fontSize: '0.9rem' }}>📜 {theme?.name}</h3>
                 {(game?.story || []).map((s, i) => (
-                  <div key={i} style={{ padding: '0.5rem 0', borderBottom: i < (game?.story?.length || 0) - 1 ? `1px solid ${C.border}20` : 'none' }}>
-                    {s.type === 'opening' && <p style={{ color: C.goldLight, fontStyle: 'italic', lineHeight: 1.6 }}>{s.text}</p>}
-                    {s.type === 'context' && <p style={{ color: C.accent, lineHeight: 1.6 }}><span style={{ background: `${C.accent}20`, padding: '0.15rem 0.4rem', borderRadius: '4px', marginRight: '0.4rem', fontSize: '0.8rem' }}>Round {s.round}</span>{s.text}</p>}
-                    {s.type === 'choice' && <p style={{ color: C.success, lineHeight: 1.6 }}>{s.winner === 'A' ? '🅰️' : '🅱️'} {s.text}</p>}
-                    {s.type === 'consequence' && <p style={{ color: C.muted, lineHeight: 1.6, paddingLeft: '1rem', borderLeft: `2px solid ${C.gold}30` }}>{s.text}</p>}
-                    {s.type === 'ending' && <p style={{ color: C.gold, lineHeight: 1.6, padding: '0.5rem', background: `${C.gold}10`, borderRadius: '8px' }}>🎬 {s.text}</p>}
+                  <div key={i} style={{ padding: '0.4rem 0', borderBottom: i < (game?.story?.length || 0) - 1 ? `1px solid ${C.border}20` : 'none' }}>
+                    {s.type === 'opening' && <p style={{ color: C.goldLight, fontStyle: 'italic', lineHeight: 1.5, fontSize: '0.85rem' }}>{s.text}</p>}
+                    {s.type === 'context' && <p style={{ color: C.accent, lineHeight: 1.5, fontSize: '0.85rem' }}><span style={{ background: `${C.accent}20`, padding: '0.1rem 0.3rem', borderRadius: '4px', marginRight: '0.3rem', fontSize: '0.7rem' }}>R{s.round}</span>{s.text}</p>}
+                    {s.type === 'choice' && <p style={{ color: C.success, lineHeight: 1.5, fontSize: '0.85rem' }}>{s.winner === 'A' ? '🅰️' : '🅱️'} {s.text}</p>}
+                    {s.type === 'consequence' && <p style={{ color: C.muted, lineHeight: 1.5, fontSize: '0.85rem', paddingLeft: '0.8rem', borderLeft: `2px solid ${C.gold}30` }}>{s.text}</p>}
+                    {s.type === 'ending' && <p style={{ color: C.gold, lineHeight: 1.5, fontSize: '0.85rem', padding: '0.4rem', background: `${C.gold}10`, borderRadius: '6px' }}>🎬 {s.text}</p>}
                   </div>
                 ))}
               </div>
               
-              {/* Options */}
+              {/* Options Panel - fixed height when visible */}
               {(game?.phase === 'debate' || game?.phase === 'vote') && opts.a && (
-                <div style={{ background: C.bgCard, borderRadius: '10px', padding: '1rem', border: `1px solid ${C.border}` }}>
-                  <h4 style={{ textAlign: 'center', marginBottom: '0.8rem', color: C.gold }}>⚔️ Choose</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ background: C.bgCard, borderRadius: '10px', padding: '0.8rem', border: `1px solid ${C.border}`, flexShrink: 0 }}>
+                  <h4 style={{ textAlign: 'center', marginBottom: '0.6rem', color: C.gold, fontSize: '0.9rem' }}>⚔️ Choose</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
                     {[{ k: 'A', o: opts.a, c: C.optA }, { k: 'B', o: opts.b, c: C.optB }].map(({ k, o, c }) => (
-                      <div key={k} onClick={() => game?.phase === 'vote' && vote(k)} style={{ padding: '1rem', borderRadius: '8px', border: `2px solid ${myVote === k ? c : `${c}40`}`, background: `${c}10`, cursor: game?.phase === 'vote' && !myVote ? 'pointer' : 'default', opacity: myVote && myVote !== k ? 0.5 : 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}><span style={{ fontWeight: 700, color: c }}>Option {k}</span><span style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem', background: `${c}20`, borderRadius: '4px', color: c }}>{o?.tag}</span></div>
-                        <p style={{ lineHeight: 1.4, fontSize: '0.85rem' }}>{o?.text}</p>
-                        {game?.phase === 'vote' && <div style={{ marginTop: '0.6rem', textAlign: 'center', fontSize: '1.1rem', fontWeight: 600, color: C.gold }}>{Object.values(votes).filter(v => v === k).length} votes</div>}
-                        {myVote === k && <div style={{ textAlign: 'center', marginTop: '0.3rem', color: c, fontSize: '0.8rem' }}>✓ Voted</div>}
+                      <div key={k} onClick={() => game?.phase === 'vote' && vote(k)} style={{ padding: '0.8rem', borderRadius: '8px', border: `2px solid ${myVote === k ? c : `${c}40`}`, background: `${c}10`, cursor: game?.phase === 'vote' && !myVote ? 'pointer' : 'default', opacity: myVote && myVote !== k ? 0.5 : 1, transition: 'all 0.2s' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                          <span style={{ fontWeight: 700, color: c, fontSize: '0.9rem' }}>Option {k}</span>
+                          <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', background: `${c}20`, borderRadius: '4px', color: c }}>{o?.tag}</span>
+                        </div>
+                        <p style={{ lineHeight: 1.4, fontSize: '0.8rem' }}>{o?.text}</p>
+                        {game?.phase === 'vote' && (
+                          <div style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '1rem', fontWeight: 600, color: C.gold }}>
+                            {Object.values(votes).filter(v => v === k).length} votes
+                          </div>
+                        )}
+                        {myVote === k && <div style={{ textAlign: 'center', marginTop: '0.2rem', color: c, fontSize: '0.75rem' }}>✓ Voted</div>}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
               
-              {/* Game End */}
+              {/* Game End Panel */}
               {game?.phase === 'ended' && (
-                <div style={{ background: `linear-gradient(145deg, ${C.gold}15, ${C.bgCard})`, borderRadius: '10px', padding: '1.5rem', textAlign: 'center', border: `1px solid ${C.gold}40` }}>
-                  <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: C.gold }}>🏆 Chronicle Complete!</h2>
-                  <div style={{ maxWidth: '350px', margin: '0 auto 1rem' }}>
+                <div style={{ background: `linear-gradient(145deg, ${C.gold}15, ${C.bgCard})`, borderRadius: '10px', padding: '1.2rem', textAlign: 'center', border: `1px solid ${C.gold}40`, flexShrink: 0 }}>
+                  <h2 style={{ fontSize: '1.3rem', marginBottom: '0.8rem', color: C.gold }}>🏆 Chronicle Complete!</h2>
+                  <div style={{ maxWidth: '300px', margin: '0 auto 0.8rem' }}>
                     {Object.entries(game?.scores || {}).map(([id, sc]) => ({ p: players.find(x => x.id === id), t: (sc.influence || 0) + (sc.debates || 0) })).sort((a, b) => b.t - a.t).map((r, i) => (
-                      <div key={r.p?.id || i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem', marginBottom: '0.3rem', background: i === 0 ? `${C.gold}20` : C.bgCard, borderRadius: '6px', border: i === 0 ? `1px solid ${C.gold}40` : 'none' }}>
+                      <div key={r.p?.id || i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', marginBottom: '0.2rem', background: i === 0 ? `${C.gold}20` : C.bgCard, borderRadius: '6px', border: i === 0 ? `1px solid ${C.gold}40` : 'none', fontSize: '0.85rem' }}>
                         <span style={{ fontWeight: 700, color: i < 3 ? C.gold : C.muted }}>#{i + 1}</span>
                         <span>{r.p?.avatar}</span>
                         <span style={{ flex: 1 }}>{r.p?.name}</span>
@@ -688,33 +909,35 @@
                       </div>
                     ))}
                   </div>
-                  <button onClick={reset} style={{ padding: '0.6rem 1.5rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '8px', color: '#000', fontWeight: 600, cursor: 'pointer' }}>Back to Lobby</button>
+                  <button onClick={reset} style={{ padding: '0.5rem 1.2rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '8px', color: '#000', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem' }}>Back to Lobby</button>
                 </div>
               )}
             </div>
             
-            {/* Right: Chat */}
+            {/* Right Side - Chat (same height as left) */}
             <div style={{ width: '280px', display: 'flex', flexDirection: 'column', background: C.bgCard, borderRadius: '10px', overflow: 'hidden', border: `1px solid ${C.border}` }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', padding: '0.6rem', borderBottom: `1px solid ${C.border}` }}>
+              {/* Player List */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.2rem', padding: '0.5rem', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
                 {players.map(p => (
-                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.2rem 0.5rem', background: votes[p.id] ? `${C.success}20` : C.bgLight, borderRadius: '12px', fontSize: '0.75rem', border: votes[p.id] ? `1px solid ${C.success}40` : 'none' }}>
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', padding: '0.15rem 0.4rem', background: votes[p.id] ? `${C.success}20` : C.bgLight, borderRadius: '10px', fontSize: '0.7rem', border: votes[p.id] ? `1px solid ${C.success}40` : 'none' }}>
                     <span>{p.avatar}</span>
-                    <span style={{ maxWidth: '50px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                    <span style={{ maxWidth: '40px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
                     {votes[p.id] && <span style={{ color: C.success, fontWeight: 700 }}>{votes[p.id]}</span>}
                   </div>
                 ))}
               </div>
               
-              <div style={{ flex: 1, height: '300px', overflowY: 'auto', padding: '0.6rem' }}>
+              {/* Messages */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem', minHeight: 0 }}>
                 {msgs.map((m, i) => (
-                  <div key={i} style={{ marginBottom: '0.5rem', fontSize: '0.8rem' }}>
+                  <div key={i} style={{ marginBottom: '0.4rem', fontSize: '0.75rem' }}>
                     {m.type === 'system' ? (
                       <div style={{ color: C.gold, fontStyle: 'italic' }}>{m.text}</div>
                     ) : (
-                      <div style={{ background: C.bgLight, borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                      <div style={{ background: C.bgLight, borderRadius: '6px', padding: '0.35rem 0.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.15rem' }}>
                           <span style={{ color: C.accent, fontWeight: 600 }}>{m.sender?.avatar} {m.sender?.name}</span>
-                          {m.choice && <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', background: m.choice === 'A' ? `${C.optA}30` : `${C.optB}30`, borderRadius: '3px', color: m.choice === 'A' ? C.optA : C.optB }}>{m.choice}</span>}
+                          {m.choice && <span style={{ fontSize: '0.6rem', padding: '0.05rem 0.25rem', background: m.choice === 'A' ? `${C.optA}30` : `${C.optB}30`, borderRadius: '3px', color: m.choice === 'A' ? C.optA : C.optB }}>{m.choice}</span>}
                         </div>
                         <div>{m.text}</div>
                       </div>
@@ -724,22 +947,23 @@
                 <div ref={msgsEndRef} />
               </div>
               
+              {/* Input */}
               {game?.phase === 'debate' && (
-                <div style={{ padding: '0.6rem', borderTop: `1px solid ${C.border}` }}>
-                  <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.4rem' }}>
-                    <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitDebate()} placeholder="Share your view..." style={{ flex: 1, padding: '0.5rem', background: C.bgLight, border: `1px solid ${C.border}`, borderRadius: '6px', color: C.text, fontSize: '0.8rem', outline: 'none' }} />
-                    <button onClick={submitDebate} style={{ padding: '0.5rem 0.8rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '6px', color: '#000', fontWeight: 600, cursor: 'pointer' }}>Send</button>
+                <div style={{ padding: '0.5rem', borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
+                  <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.3rem' }}>
+                    <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitDebate()} placeholder="Share your view..." style={{ flex: 1, padding: '0.4rem', background: C.bgLight, border: `1px solid ${C.border}`, borderRadius: '6px', color: C.text, fontSize: '0.75rem', outline: 'none' }} />
+                    <button onClick={submitDebate} style={{ padding: '0.4rem 0.6rem', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, border: 'none', borderRadius: '6px', color: '#000', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem' }}>Send</button>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.3rem' }}>
-                    <button onClick={() => setInput('I support A because ')} style={{ padding: '0.2rem 0.5rem', background: `${C.optA}20`, border: `1px solid ${C.optA}30`, borderRadius: '10px', color: C.optA, fontSize: '0.7rem', cursor: 'pointer' }}>🅰️ A</button>
-                    <button onClick={() => setInput('I support B because ')} style={{ padding: '0.2rem 0.5rem', background: `${C.optB}20`, border: `1px solid ${C.optB}30`, borderRadius: '10px', color: C.optB, fontSize: '0.7rem', cursor: 'pointer' }}>🅱️ B</button>
+                  <div style={{ display: 'flex', gap: '0.25rem' }}>
+                    <button onClick={() => setInput('I support A because ')} style={{ padding: '0.15rem 0.4rem', background: `${C.optA}20`, border: `1px solid ${C.optA}30`, borderRadius: '8px', color: C.optA, fontSize: '0.65rem', cursor: 'pointer' }}>🅰️ A</button>
+                    <button onClick={() => setInput('I support B because ')} style={{ padding: '0.15rem 0.4rem', background: `${C.optB}20`, border: `1px solid ${C.optB}30`, borderRadius: '8px', color: C.optB, fontSize: '0.65rem', cursor: 'pointer' }}>🅱️ B</button>
                   </div>
                 </div>
               )}
               
               {game?.phase === 'vote' && !myVote && (
-                <div style={{ padding: '0.8rem', textAlign: 'center', background: `${C.gold}15` }}>
-                  <p style={{ color: C.accent, fontWeight: 600, fontSize: '0.9rem' }}>⏰ Please vote on the left!</p>
+                <div style={{ padding: '0.6rem', textAlign: 'center', background: `${C.gold}15`, flexShrink: 0 }}>
+                  <p style={{ color: C.accent, fontWeight: 600, fontSize: '0.8rem' }}>⏰ Please vote on the left!</p>
                 </div>
               )}
             </div>
