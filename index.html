@@ -143,6 +143,7 @@
       const [walletAddress, setWalletAddress] = useState(null);
       const [walletConnecting, setWalletConnecting] = useState(false);
       const [activeTab, setActiveTab] = useState('game');
+      const [showRules, setShowRules] = useState(false);
       const [view, setView] = useState('home');
       const [player, setPlayer] = useState({ id: '', name: '', avatar: '🎮', exp: 1000 });
       const [roomId, setRoomId] = useState(null);
@@ -164,14 +165,23 @@
       useEffect(() => {
         try {
           if (!firebase.apps.length) firebase.initializeApp(CONFIG.FIREBASE);
-          setDb(firebase.database());
+          const database = firebase.database();
+          setDb(database);
+          // 从Firebase实时读取排行榜
+          database.ref('leaderboard').orderByChild('score').limitToLast(50).on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+              setLeaderboard(Object.values(data).sort((a, b) => b.score - a.score));
+            }
+          });
+          // 从Firebase实时读取游戏历史
+          database.ref('gameHistory').limitToLast(100).on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+              setGameHistory(Object.values(data).sort((a, b) => b.timestamp - a.timestamp));
+            }
+          });
         } catch (err) { console.error('Firebase init error:', err); }
-        try {
-          const savedLb = localStorage.getItem('cc_leaderboard');
-          if (savedLb) setLeaderboard(JSON.parse(savedLb));
-          const savedHist = localStorage.getItem('cc_history');
-          if (savedHist) setGameHistory(JSON.parse(savedHist));
-        } catch {}
         return () => {
           if (timerRef.current) clearInterval(timerRef.current);
           if (roomCheckRef.current) clearInterval(roomCheckRef.current);
@@ -204,7 +214,13 @@
         const gameRef = db.ref(`games/${roomId}`);
         roomRef.on('value', (s) => {
           const d = s.val();
-          if (d) { setRoomData(d); if (d.players) setPlayers(Object.values(d.players)); if (d.status === 'closed') { alert('Room closed'); resetGame(); } }
+          if (d) {
+            setRoomData(d);
+            if (d.players) setPlayers(Object.values(d.players));
+            if (d.status === 'closed') { alert('房间已关闭'); resetGame(); }
+            // 关键：房间状态变为playing时，所有玩家自动进入游戏
+            if (d.status === 'playing') { setView('game'); }
+          }
         });
         gameRef.on('value', (s) => {
           const d = s.val();
@@ -247,9 +263,21 @@
         setWalletConnecting(true);
         try {
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          setWalletAddress(accounts[0]);
-          setPlayer(p => ({ ...p, id: accounts[0] }));
-          return accounts[0];
+          const address = accounts[0];
+          setWalletAddress(address);
+          // 从Firebase读取玩家累计经验值
+          if (db) {
+            const snapshot = await db.ref(`players/${address}`).once('value');
+            const savedPlayer = snapshot.val();
+            if (savedPlayer) {
+              setPlayer(p => ({ ...p, id: address, exp: savedPlayer.exp || 1000 }));
+            } else {
+              setPlayer(p => ({ ...p, id: address }));
+            }
+          } else {
+            setPlayer(p => ({ ...p, id: address }));
+          }
+          return address;
         } catch (err) { alert('Wallet connection failed'); return null; }
         finally { setWalletConnecting(false); }
       };
@@ -365,9 +393,14 @@
           const myScore = newScores[player.id] || { influence: 0, debates: 0 };
           const totalScore = (myScore.influence || 0) + (myScore.debates || 0);
           if (player.name && totalScore > 0) {
-            const newLb = [...leaderboard, { id: Date.now(), name: player.name, avatar: player.avatar, score: totalScore, theme, date: new Date().toLocaleDateString() }].sort((a, b) => b.score - a.score).slice(0, 50);
-            setLeaderboard(newLb);
-            try { localStorage.setItem('cc_leaderboard', JSON.stringify(newLb)); } catch {}
+            // 更新玩家经验值
+            const newExp = player.exp + totalScore;
+            setPlayer(p => ({ ...p, exp: newExp }));
+            // 保存到Firebase，所有玩家都能看到一致的排行榜
+            const newEntry = { id: Date.now(), name: player.name, avatar: player.avatar, score: totalScore, exp: newExp, theme, date: new Date().toLocaleDateString(), wallet: player.id };
+            db.ref('leaderboard').push().set(newEntry);
+            // 保存玩家累计经验值到Firebase
+            db.ref(`players/${player.id}`).set({ name: player.name, avatar: player.avatar, exp: newExp, wallet: player.id });
           }
         } else {
           const nextRound = round + 1;
@@ -387,9 +420,9 @@
       };
 
       const saveHistory = (theme, path, scores, ending) => {
-        const newHist = [...gameHistory, { id: Date.now(), theme, path: path.join(''), ending: ending.slice(0, 100) + '...', date: new Date().toLocaleDateString(), players: players.length }].slice(-20);
-        setGameHistory(newHist);
-        try { localStorage.setItem('cc_history', JSON.stringify(newHist)); } catch {}
+        // 保存到Firebase，所有玩家都能看到一致的游戏历史
+        const histEntry = { id: Date.now(), timestamp: Date.now(), theme, path: path.join(''), ending: ending.slice(0, 100) + '...', date: new Date().toLocaleDateString(), players: players.length, roomId };
+        db.ref('gameHistory').push().set(histEntry);
       };
 
       const getContext = (roundNum, path) => {
@@ -456,7 +489,30 @@
               {[{ key: 'game', label: '🎮 Game' }, { key: 'leaderboard', label: '🏆 Leaderboard' }, { key: 'history', label: '📚 History' }].map(tab => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ padding: '0.6rem 1.5rem', background: activeTab === tab.key ? 'rgba(167,139,250,0.2)' : 'transparent', border: activeTab === tab.key ? '1px solid rgba(167,139,250,0.5)' : '1px solid transparent', borderRadius: '8px', color: activeTab === tab.key ? '#a78bfa' : '#8b8b9e', fontSize: '0.95rem', cursor: 'pointer' }}>{tab.label}</button>
               ))}
+              <button onClick={() => setShowRules(true)} style={{ padding: '0.6rem 1.5rem', background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: '8px', color: '#fbbf24', fontSize: '0.95rem', cursor: 'pointer' }}>📖 Rules</button>
             </div>
+            {showRules && (
+              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                <div style={{ background: 'linear-gradient(145deg, #1a1a2e, #16213e)', borderRadius: '16px', padding: '2rem', maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto', border: '1px solid rgba(167,139,250,0.3)', margin: '1rem' }}>
+                  <h2 style={{ color: '#fbbf24', marginBottom: '1.5rem', textAlign: 'center' }}>📖 游戏规则 / Game Rules</h2>
+                  <div style={{ color: '#e8e8e8', lineHeight: 1.8 }}>
+                    <h3 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>🎯 游戏目标</h3>
+                    <p style={{ marginBottom: '1rem', color: '#a5a5b8' }}>与其他玩家一起完成5轮故事决策，通过辩论和投票影响故事走向，获得最高积分！</p>
+                    <h3 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>🔗 入场规则</h3>
+                    <p style={{ marginBottom: '1rem', color: '#a5a5b8' }}>• 创建或加入房间需要连接MetaMask钱包<br/>• 需要确认GenLayer交易（0 GEN手续费）<br/>• 交易失败则无法创建/加入房间</p>
+                    <h3 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>⏰ 房间规则</h3>
+                    <p style={{ marginBottom: '1rem', color: '#a5a5b8' }}>• 最少2人，最多8人<br/>• 超过1分钟无人加入，AI会自动填充<br/>• 超过2分钟未开始，房间自动关闭</p>
+                    <h3 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>🎮 游戏流程</h3>
+                    <p style={{ marginBottom: '1rem', color: '#a5a5b8' }}>• <b>辩论阶段 (90秒)</b>：阅读故事背景，在聊天区发表观点<br/>• <b>投票阶段 (30秒)</b>：选择A或B选项<br/>• <b>结果揭晓</b>：票数多的选项决定故事走向<br/>• 共5轮，每轮故事会根据之前的选择变化</p>
+                    <h3 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>⭐ 积分规则</h3>
+                    <p style={{ marginBottom: '1rem', color: '#a5a5b8' }}>• 发表辩论观点：+10分<br/>• 投票给获胜选项：+30分<br/>• 游戏结束后积分记入排行榜</p>
+                    <h3 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>📊 数据存储</h3>
+                    <p style={{ marginBottom: '1rem', color: '#a5a5b8' }}>• 实时游戏数据：Firebase<br/>• 最终结果和排行榜：GenLayer区块链</p>
+                  </div>
+                  <button onClick={() => setShowRules(false)} style={{ width: '100%', padding: '1rem', marginTop: '1rem', background: 'linear-gradient(135deg, #a78bfa, #f472b6)', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '1rem', fontWeight: 600, cursor: 'pointer' }}>Got it! 我知道了</button>
+                </div>
+              </div>
+            )}
             <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
               {activeTab === 'game' && (<>
                 {!player.name ? (
