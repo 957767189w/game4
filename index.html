@@ -136,6 +136,28 @@
       const scoredRoundRef = useRef(0);
       const processingRef = useRef(false);
       const roomClosedShownRef = useRef(false);
+      const gameRef = useRef(null);
+      
+      // Full state reset function
+      const fullReset = () => {
+        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+        if (roomChkRef.current) { clearInterval(roomChkRef.current); roomChkRef.current = null; }
+        setActiveGameId(null);
+        localStorage.removeItem('cc_activegame');
+        setRoomId(null);
+        setRoomData(null);
+        setGame(null);
+        gameRef.current = null;
+        setPlayers([]);
+        setMsgs([]);
+        setMyVote(null);
+        setLoading(false);
+        lastRoundRef.current = 0;
+        scoredRoundRef.current = 0;
+        processingRef.current = false;
+        roomClosedShownRef.current = false;
+        setView('home');
+      };
 
       useEffect(() => {
         try {
@@ -204,41 +226,50 @@
 
       useEffect(() => {
         if (!db || !roomId) return;
-        roomClosedShownRef.current = false; // Reset when entering room
+        roomClosedShownRef.current = false;
         const rRef = db.ref(`rooms/${roomId}`);
         const gRef = db.ref(`games/${roomId}`);
+        
         const rh = s => {
           const d = s.val();
           if (d) {
             setRoomData(d);
             if (d.players) setPlayers(Object.values(d.players));
-            // If room is closed/expired and we're not in ended game state, go home (show modal only once)
-            if ((d.status === 'closed' || d.status === 'expired') && game?.phase !== 'ended' && !roomClosedShownRef.current) {
-              roomClosedShownRef.current = true;
-              setActiveGameId(null);
-              localStorage.removeItem('cc_activegame');
-              showModal('📜 Room Closed', 'This chronicle room is no longer available.');
-              resetSync();
+            // If room is closed/expired, check game state directly from Firebase
+            if ((d.status === 'closed' || d.status === 'expired') && !roomClosedShownRef.current) {
+              gRef.once('value').then(gs => {
+                const gd = gs.val();
+                if (!gd || gd.phase !== 'ended') {
+                  roomClosedShownRef.current = true;
+                  setActiveGameId(null);
+                  localStorage.removeItem('cc_activegame');
+                  showModal('📜 Room Closed', 'This chronicle room is no longer available.');
+                  resetSync();
+                }
+              });
             }
-            if (d.status === 'playing' && view !== 'game') {
+            if (d.status === 'playing') {
               setView('game');
               setMyVote(null);
             }
           }
         };
+        
         const gh = s => {
           const d = s.val();
           if (d) {
+            gameRef.current = d;
             setGame(d);
             if (d.messages) setMsgs(Object.values(d.messages).sort((a, b) => a.timestamp - b.timestamp));
             if (d.round !== lastRoundRef.current) { lastRoundRef.current = d.round; setMyVote(null); }
             if (d.timerEnd && d.phase !== 'ended') setTimer(Math.max(0, Math.floor((d.timerEnd - Date.now()) / 1000)));
           }
         };
+        
         rRef.on('value', rh);
         gRef.on('value', gh);
         return () => { rRef.off('value', rh); gRef.off('value', gh); };
-      }, [db, roomId, view, game?.phase]);
+      }, [db, roomId]);
 
       useEffect(() => {
         if (!db || !roomId || !roomData || roomData.status !== 'waiting') return;
@@ -255,15 +286,29 @@
       }, [db, roomId, roomData, player.id]);
 
       useEffect(() => {
-        if (!game?.timerEnd || game?.phase === 'ended') return;
-        if (timerRef.current) clearInterval(timerRef.current);
+        // Single timer that runs throughout the game
+        if (!db || !roomId) return;
+        
+        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+        
         timerRef.current = setInterval(() => {
-          const rem = Math.max(0, Math.floor((game.timerEnd - Date.now()) / 1000));
+          const g = gameRef.current;
+          if (!g || !g.timerEnd || g.phase === 'ended') {
+            setTimer(0);
+            return;
+          }
+          
+          const rem = Math.max(0, Math.floor((g.timerEnd - Date.now()) / 1000));
           setTimer(rem);
-          if (rem <= 0 && player.id === roomData?.host && !processingRef.current) phaseEnd();
+          
+          // Only host triggers phase transitions
+          if (rem <= 0 && player.id === roomData?.host && !processingRef.current) {
+            phaseEnd();
+          }
         }, 1000);
-        return () => { if (timerRef.current) clearInterval(timerRef.current); };
-      }, [game?.timerEnd, game?.phase, player.id, roomData?.host]);
+        
+        return () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
+      }, [db, roomId, player.id, roomData?.host]);
 
       useEffect(() => { msgsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
 
@@ -394,6 +439,12 @@
 
       const startGame = async () => {
         if (!db || !roomId || players.length < CONFIG.ROOM_SIZE.min) return;
+        
+        // Reset all refs for new game
+        lastRoundRef.current = 0;
+        scoredRoundRef.current = 0;
+        processingRef.current = false;
+        
         await db.ref(`rooms/${roomId}`).update({ status: 'playing' });
         const theme = roomData?.theme || 'fantasy';
         const arc = THEMES[theme];
@@ -412,23 +463,31 @@
       };
 
       const phaseEnd = async () => {
-        if (!db || !roomId || !game || processingRef.current) return;
+        const g = gameRef.current;
+        if (!db || !roomId || !g || processingRef.current) return;
+        if (g.phase !== 'debate' && g.phase !== 'vote') return;
+        
         processingRef.current = true;
         try {
-          if (game.phase === 'debate') {
+          if (g.phase === 'debate') {
             await db.ref(`games/${roomId}`).update({ phase: 'vote', timerEnd: Date.now() + CONFIG.VOTE_DURATION * 1000, votes: {} });
             addMsg('system', '🗳️ Voting begins!');
-            players.filter(p => p.isAI).forEach((ai, i) => { setTimeout(async () => { await db.ref(`games/${roomId}/votes/${ai.id}`).set(Math.random() > 0.5 ? 'A' : 'B'); }, (i + 1) * 800); });
-          } else if (game.phase === 'vote') {
+            players.filter(p => p.isAI).forEach((ai, i) => { setTimeout(async () => { try { await db.ref(`games/${roomId}/votes/${ai.id}`).set(Math.random() > 0.5 ? 'A' : 'B'); } catch {} }, (i + 1) * 800); });
+          } else if (g.phase === 'vote') {
             await calcResult();
           }
-        } finally { processingRef.current = false; }
+        } catch (e) {
+          console.error('phaseEnd error:', e);
+        } finally {
+          processingRef.current = false;
+        }
       };
 
       const calcResult = async () => {
-        if (!db || !roomId || !game) return;
+        const g = gameRef.current;
+        if (!db || !roomId || !g) return;
         
-        const round = game.round;
+        const round = g.round;
         
         // Prevent duplicate scoring for the same round using separate ref
         if (scoredRoundRef.current >= round) return;
@@ -466,7 +525,7 @@
           winOpt = winner === 'A' ? rd?.a : rd?.b;
           resultText = `Council chose Option ${winner} (${cnt[winner]} vs ${cnt[winner === 'A' ? 'B' : 'A']})`;
           
-          // Only add score when there's a clear winner
+          // Only add score when there's a clear winner - each voter gets score only once
           Object.entries(cv).forEach(([id, v]) => {
             if (v === winner && newScores[id]) {
               newScores[id].influence = (newScores[id].influence || 0) + 30;
@@ -476,8 +535,8 @@
           addMsg('system', `⚖️ Option ${winner} wins!`);
         }
         
-        const newPath = [...(game.path || []), winner];
-        const newStory = [...(game.story || []), { text: resultText, type: 'choice', round, winner, isTie }, { text: winOpt?.text, type: 'consequence', round }];
+        const newPath = [...(g.path || []), winner];
+        const newStory = [...(g.story || []), { text: resultText, type: 'choice', round, winner, isTie }, { text: winOpt?.text, type: 'consequence', round }];
 
         if (round >= CONFIG.TOTAL_ROUNDS) {
           const ending = arc.endings.default;
@@ -532,81 +591,25 @@
 
       // Exit from game view - different behavior based on game state
       const exitGame = async () => {
-        if (timerRef.current) clearInterval(timerRef.current);
-        if (roomChkRef.current) clearInterval(roomChkRef.current);
-        
         // Case C: Game ended - close room
         if (game?.phase === 'ended' && db && roomId) {
-          await db.ref(`rooms/${roomId}`).update({ status: 'closed' });
+          try { await db.ref(`rooms/${roomId}`).update({ status: 'closed' }); } catch {}
         }
         // Case B: Game still playing - room stays open for others, but player leaves
-        // Player can create/join new rooms after leaving
-        
-        // Always clear activeGameId - player can create/join new rooms
-        setActiveGameId(null);
-        localStorage.removeItem('cc_activegame');
-        
-        setRoomId(null);
-        setRoomData(null);
-        setGame(null);
-        setPlayers([]);
-        setMsgs([]);
-        setMyVote(null);
-        setLoading(false);
-        lastRoundRef.current = 0;
-        scoredRoundRef.current = 0;
-        processingRef.current = false;
-        roomClosedShownRef.current = false;
-        setView('home');
+        fullReset();
       };
 
       // Exit from room view (waiting status) - Case A: close room immediately
       const reset = async () => {
-        if (timerRef.current) clearInterval(timerRef.current);
-        if (roomChkRef.current) clearInterval(roomChkRef.current);
-        
         // Case A: Room not started (waiting) - close room immediately
         if (db && roomId && roomData?.status === 'waiting') {
-          try {
-            await db.ref(`rooms/${roomId}`).update({ status: 'closed' });
-          } catch (e) { console.log('Failed to close room', e); }
+          try { await db.ref(`rooms/${roomId}`).update({ status: 'closed' }); } catch {}
         }
-        
-        // Always clear activeGameId - player can create/join new rooms
-        setActiveGameId(null);
-        localStorage.removeItem('cc_activegame');
-        
-        setRoomId(null);
-        setRoomData(null);
-        setGame(null);
-        setPlayers([]);
-        setMsgs([]);
-        setMyVote(null);
-        setLoading(false);
-        lastRoundRef.current = 0;
-        scoredRoundRef.current = 0;
-        processingRef.current = false;
-        roomClosedShownRef.current = false;
-        setView('home');
+        fullReset();
       };
       
       const resetSync = () => {
-        if (timerRef.current) clearInterval(timerRef.current);
-        if (roomChkRef.current) clearInterval(roomChkRef.current);
-        setActiveGameId(null);
-        localStorage.removeItem('cc_activegame');
-        setRoomId(null);
-        setRoomData(null);
-        setGame(null);
-        setPlayers([]);
-        setMsgs([]);
-        setMyVote(null);
-        setLoading(false);
-        lastRoundRef.current = 0;
-        scoredRoundRef.current = 0;
-        processingRef.current = false;
-        roomClosedShownRef.current = false;
-        setView('home');
+        fullReset();
       };
 
       const clearHistory = async () => {
