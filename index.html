@@ -329,6 +329,14 @@
       const createRoom = async (theme) => {
         if (!db || !player.name) { showModal('⚠️ Notice', 'Please enter your name first to begin your chronicle.'); return; }
         
+        // Check 2-minute cooldown FIRST - before any transaction
+        const now = Date.now();
+        const timeSince = now - lastRoomCreate;
+        if (lastRoomCreate > 0 && timeSince < CONFIG.ROOM_CREATE_COOLDOWN) {
+          showModal('⏳ Cooldown', 'You can only create one room every 2 minutes. Please try again later.');
+          return;
+        }
+        
         // Check if in active game - verify it actually exists and is active
         if (activeGameId) {
           try {
@@ -344,19 +352,10 @@
           localStorage.removeItem('cc_activegame');
         }
         
-        // Check 2-minute cooldown
-        const now = Date.now();
-        const timeSince = now - lastRoomCreate;
-        if (lastRoomCreate > 0 && timeSince < CONFIG.ROOM_CREATE_COOLDOWN) {
-          const remaining = Math.ceil((CONFIG.ROOM_CREATE_COOLDOWN - timeSince) / 1000);
-          showModal('⏳ Cooldown Active', `Your current room is not closed. Please wait ${remaining} seconds before creating another room.`);
-          return;
-        }
-        
         let addr = wallet;
         if (!addr) { addr = await connectWallet(); if (!addr) return; }
         
-        // GenLayer transaction
+        // GenLayer transaction - only after cooldown check passes
         const paid = await payFee(addr);
         if (!paid) return;
         
