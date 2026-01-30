@@ -133,6 +133,7 @@
       const msgsEndRef = useRef(null);
       const roomChkRef = useRef(null);
       const lastRoundRef = useRef(0);
+      const scoredRoundRef = useRef(0);
       const processingRef = useRef(false);
       const roomClosedShownRef = useRef(false);
 
@@ -429,9 +430,9 @@
         
         const round = game.round;
         
-        // Prevent duplicate scoring for the same round
-        if (lastRoundRef.current >= round) return;
-        lastRoundRef.current = round;
+        // Prevent duplicate scoring for the same round using separate ref
+        if (scoredRoundRef.current >= round) return;
+        scoredRoundRef.current = round;
         
         await new Promise(r => setTimeout(r, 500));
         const vs = await db.ref(`games/${roomId}/votes`).once('value');
@@ -553,6 +554,7 @@
         setMyVote(null);
         setLoading(false);
         lastRoundRef.current = 0;
+        scoredRoundRef.current = 0;
         processingRef.current = false;
         roomClosedShownRef.current = false;
         setView('home');
@@ -582,6 +584,7 @@
         setMyVote(null);
         setLoading(false);
         lastRoundRef.current = 0;
+        scoredRoundRef.current = 0;
         processingRef.current = false;
         roomClosedShownRef.current = false;
         setView('home');
@@ -600,6 +603,7 @@
         setMyVote(null);
         setLoading(false);
         lastRoundRef.current = 0;
+        scoredRoundRef.current = 0;
         processingRef.current = false;
         roomClosedShownRef.current = false;
         setView('home');
