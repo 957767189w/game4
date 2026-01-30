@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "name": "consensus-chronicle",
   "builds": [
     {
       "src": "index.html",

@@ -589,8 +589,20 @@
         addMsg('system', `${player.name} voted`);
       };
 
-      // Exit from game view - different behavior based on game state
-      const exitGame = async () => {
+      // Confirm exit from game - show modal first
+      const confirmExitGame = () => {
+        if (game?.phase === 'ended') {
+          // Game ended - exit directly
+          doExitGame();
+        } else {
+          // Game in progress - confirm first
+          showModal('⚠️ Leave Game?', 'Are you sure you want to leave? The game will continue without you.', doExitGame);
+        }
+      };
+
+      // Actually exit from game view
+      const doExitGame = async () => {
+        closeModal();
         // Case C: Game ended - close room
         if (game?.phase === 'ended' && db && roomId) {
           try { await db.ref(`rooms/${roomId}`).update({ status: 'closed' }); } catch {}
@@ -599,8 +611,14 @@
         fullReset();
       };
 
-      // Exit from room view (waiting status) - Case A: close room immediately
-      const reset = async () => {
+      // Confirm exit from room - show modal first
+      const confirmReset = () => {
+        showModal('⚠️ Leave Room?', 'Are you sure you want to leave? The room will be closed.', doReset);
+      };
+
+      // Actually exit from room view (waiting status) - Case A: close room immediately
+      const doReset = async () => {
+        closeModal();
         // Case A: Room not started (waiting) - close room immediately
         if (db && roomId && roomData?.status === 'waiting') {
           try { await db.ref(`rooms/${roomId}`).update({ status: 'closed' }); } catch {}
@@ -750,7 +768,7 @@
           <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at center, rgba(30,25,15,0.2), ${C.bg})` }}>
             <Modal show={modal.show} title={modal.title} message={modal.message} type={modal.type} onClose={closeModal} onConfirm={modal.onConfirm} />
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: `1px solid ${C.borderLight}`, background: 'rgba(5,5,7,0.8)' }}>
-              <button onClick={reset} style={{ ...S.btn, ...S.ghostBtn, padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem' }}>← Back</button>
+              <button onClick={confirmReset} style={{ ...S.btn, ...S.ghostBtn, padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem' }}>← Back</button>
               <div><span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{themeData?.icon}</span><span style={{ ...S.title, color: C.gold }}>{themeData?.name}</span></div>
               <span style={{ color: C.textMuted }}>{player.avatar} {player.name}</span>
             </header>
@@ -787,7 +805,7 @@
         <div style={{ height: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Modal show={modal.show} title={modal.title} message={modal.message} type={modal.type} onClose={closeModal} onConfirm={modal.onConfirm} />
           <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem 1.5rem', background: 'rgba(5,5,7,0.9)', borderBottom: `1px solid ${C.borderLight}`, height: '55px', flexShrink: 0 }}>
-            <button onClick={exitGame} style={{ ...S.btn, ...S.ghostBtn, padding: '0.4rem 0.8rem', borderRadius: '5px', fontSize: '0.75rem' }}>{game?.phase === 'ended' ? '← Exit' : '← Leave'}</button>
+            <button onClick={confirmExitGame} style={{ ...S.btn, ...S.ghostBtn, padding: '0.4rem 0.8rem', borderRadius: '5px', fontSize: '0.75rem' }}>{game?.phase === 'ended' ? '← Exit' : '← Leave'}</button>
             <div style={{ textAlign: 'center' }}><div style={{ fontSize: '0.65rem', color: C.textMuted, letterSpacing: '0.1em' }}>ROUND {game?.round || 1}/{CONFIG.TOTAL_ROUNDS}</div><div style={{ ...S.title, fontSize: '0.85rem', color: game?.phase === 'debate' ? C.goldLight : game?.phase === 'vote' ? C.success : C.gold }}>{game?.phase === 'debate' && '💬 DEBATE'}{game?.phase === 'vote' && '🗳️ VOTE'}{game?.phase === 'ended' && '📜 COMPLETE'}</div></div>
             <div style={{ ...S.title, fontSize: '1.8rem', fontWeight: 700, color: timer <= 10 && game?.phase !== 'ended' ? C.error : C.gold }}>{game?.phase === 'ended' ? '—' : fmtTime(timer)}</div>
             <div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.6rem', color: C.textMuted, letterSpacing: '0.1em' }}>SCORE</div><div style={{ ...S.title, fontSize: '1.2rem', fontWeight: 700, color: C.goldBright }}>{(game?.scores?.[player.id]?.influence || 0) + (game?.scores?.[player.id]?.debates || 0)}</div></div>
@@ -831,7 +849,7 @@
                       </div>
                     ))}
                   </div>
-                  <button onClick={exitGame} style={{ ...S.btn, ...S.goldBtn, padding: '0.8rem 2rem', borderRadius: '8px' }}>Exit & Close Room</button>
+                  <button onClick={doExitGame} style={{ ...S.btn, ...S.goldBtn, padding: '0.8rem 2rem', borderRadius: '8px' }}>Exit & Close Room</button>
                 </div>
               )}
             </div>
