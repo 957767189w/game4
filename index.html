@@ -128,12 +128,13 @@
       const [lb, setLb] = useState([]);
       const [hist, setHist] = useState([]);
       const [loading, setLoading] = useState(false);
-      const [processingPhase, setProcessingPhase] = useState(false);
       const [modal, setModal] = useState({ show: false, title: '', message: '', type: 'info', onConfirm: null });
       const timerRef = useRef(null);
       const msgsEndRef = useRef(null);
       const roomChkRef = useRef(null);
       const lastRoundRef = useRef(0);
+      const processingRef = useRef(false);
+      const roomClosedShownRef = useRef(false);
 
       useEffect(() => {
         try {
@@ -202,6 +203,7 @@
 
       useEffect(() => {
         if (!db || !roomId) return;
+        roomClosedShownRef.current = false; // Reset when entering room
         const rRef = db.ref(`rooms/${roomId}`);
         const gRef = db.ref(`games/${roomId}`);
         const rh = s => {
@@ -209,8 +211,9 @@
           if (d) {
             setRoomData(d);
             if (d.players) setPlayers(Object.values(d.players));
-            // If room is closed/expired and we're not in ended game state, go home
-            if ((d.status === 'closed' || d.status === 'expired') && game?.phase !== 'ended') {
+            // If room is closed/expired and we're not in ended game state, go home (show modal only once)
+            if ((d.status === 'closed' || d.status === 'expired') && game?.phase !== 'ended' && !roomClosedShownRef.current) {
+              roomClosedShownRef.current = true;
               setActiveGameId(null);
               localStorage.removeItem('cc_activegame');
               showModal('📜 Room Closed', 'This chronicle room is no longer available.');
@@ -256,10 +259,10 @@
         timerRef.current = setInterval(() => {
           const rem = Math.max(0, Math.floor((game.timerEnd - Date.now()) / 1000));
           setTimer(rem);
-          if (rem <= 0 && player.id === roomData?.host && !processingPhase) phaseEnd();
+          if (rem <= 0 && player.id === roomData?.host && !processingRef.current) phaseEnd();
         }, 1000);
         return () => { if (timerRef.current) clearInterval(timerRef.current); };
-      }, [game?.timerEnd, game?.phase, player.id, roomData?.host, processingPhase]);
+      }, [game?.timerEnd, game?.phase, player.id, roomData?.host]);
 
       useEffect(() => { msgsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
 
@@ -434,8 +437,8 @@
       };
 
       const phaseEnd = async () => {
-        if (!db || !roomId || !game || processingPhase) return;
-        setProcessingPhase(true);
+        if (!db || !roomId || !game || processingRef.current) return;
+        processingRef.current = true;
         try {
           if (game.phase === 'debate') {
             await db.ref(`games/${roomId}`).update({ phase: 'vote', timerEnd: Date.now() + CONFIG.VOTE_DURATION * 1000, votes: {} });
@@ -444,18 +447,24 @@
           } else if (game.phase === 'vote') {
             await calcResult();
           }
-        } finally { setProcessingPhase(false); }
+        } finally { processingRef.current = false; }
       };
 
       const calcResult = async () => {
         if (!db || !roomId || !game) return;
+        
+        const round = game.round;
+        
+        // Prevent duplicate scoring for the same round
+        if (lastRoundRef.current >= round) return;
+        lastRoundRef.current = round;
+        
         await new Promise(r => setTimeout(r, 500));
         const vs = await db.ref(`games/${roomId}/votes`).once('value');
         const cv = vs.val() || {};
         const cnt = { A: 0, B: 0 };
         Object.values(cv).forEach(v => { if (v === 'A') cnt.A++; else if (v === 'B') cnt.B++; });
         
-        const round = game.round;
         const theme = roomData?.theme || 'fantasy';
         const arc = THEMES[theme];
         const rd = arc.rounds[round - 1];
@@ -551,14 +560,16 @@
         if (timerRef.current) clearInterval(timerRef.current);
         if (roomChkRef.current) clearInterval(roomChkRef.current);
         
-        // Case C: Game ended - close room and clear everything
+        // Case C: Game ended - close room
         if (game?.phase === 'ended' && db && roomId) {
           await db.ref(`rooms/${roomId}`).update({ status: 'closed' });
-          setActiveGameId(null);
-          localStorage.removeItem('cc_activegame');
         }
-        // Case B: Game still playing - DON'T close room, keep activeGameId so player can rejoin
-        // activeGameId stays set, room stays open
+        // Case B: Game still playing - room stays open for others, but player leaves
+        // Player can create/join new rooms after leaving
+        
+        // Always clear activeGameId - player can create/join new rooms
+        setActiveGameId(null);
+        localStorage.removeItem('cc_activegame');
         
         setRoomId(null);
         setRoomData(null);
@@ -567,7 +578,7 @@
         setMsgs([]);
         setMyVote(null);
         lastRoundRef.current = 0;
-        setProcessingPhase(false);
+        processingRef.current = false;
         setView('home');
       };
 
@@ -581,10 +592,11 @@
           try {
             await db.ref(`rooms/${roomId}`).update({ status: 'closed' });
           } catch (e) { console.log('Failed to close room', e); }
-          // Clear activeGameId since room is closed
-          setActiveGameId(null);
-          localStorage.removeItem('cc_activegame');
         }
+        
+        // Always clear activeGameId - player can create/join new rooms
+        setActiveGameId(null);
+        localStorage.removeItem('cc_activegame');
         
         setRoomId(null);
         setRoomData(null);
@@ -593,13 +605,15 @@
         setMsgs([]);
         setMyVote(null);
         lastRoundRef.current = 0;
-        setProcessingPhase(false);
+        processingRef.current = false;
         setView('home');
       };
       
       const resetSync = () => {
         if (timerRef.current) clearInterval(timerRef.current);
         if (roomChkRef.current) clearInterval(roomChkRef.current);
+        setActiveGameId(null);
+        localStorage.removeItem('cc_activegame');
         setRoomId(null);
         setRoomData(null);
         setGame(null);
@@ -607,7 +621,8 @@
         setMsgs([]);
         setMyVote(null);
         lastRoundRef.current = 0;
-        setProcessingPhase(false);
+        processingRef.current = false;
+        roomClosedShownRef.current = false;
         setView('home');
       };
 
@@ -684,16 +699,6 @@
                   <p style={{ marginTop: '0.5rem', color: C.textMuted, fontSize: '0.8rem' }}>Press Enter</p>
                 </div>
               ) : (<>
-                <div className="shimmer-bg" style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '0.8rem', background: C.bgGlass, borderRadius: '8px', border: `1px solid ${C.borderLight}` }}><p style={{ color: C.goldMuted, fontSize: '0.85rem' }}>⛓️ GenLayer Transaction Required • Firebase: Real-time • GenLayer: Final Results</p></div>
-                
-                {activeGameId && (
-                  <div style={{ ...S.card, marginBottom: '2rem', padding: '1.2rem', background: `linear-gradient(135deg, rgba(139,195,74,0.1), ${C.bgCard})`, borderColor: C.success }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div><h3 style={{ ...S.title, color: C.success }}>🎮 Active Game</h3><p style={{ color: C.textSoft, fontSize: '0.85rem' }}>You have an ongoing chronicle</p></div>
-                      <button onClick={() => rejoinGame(activeGameId)} style={{ ...S.btn, padding: '0.7rem 1.5rem', background: `linear-gradient(135deg, ${C.success}, #558b2f)`, border: 'none', borderRadius: '8px', color: '#fff' }}>Return (Free)</button>
-                    </div>
-                  </div>
-                )}
                 
                 {rooms.length > 0 && (
                   <div style={{ marginBottom: '2rem' }}>
