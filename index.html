@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Consensus Chronicle</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -12,24 +12,17 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Crimson Text', Georgia, serif; background: #050507; color: #f0ede5; overflow-x: hidden; }
+    body { font-family: 'Crimson Text', Georgia, serif; background: #050507; color: #f0ede5; }
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: rgba(10,10,15,0.8); }
     ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #d4af37 0%, #8b6914 100%); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #f0d060 0%, #c9a227 100%); }
     @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
     @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-    @keyframes float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-10px) rotate(1deg); } }
-    @keyframes glow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(212,175,55,0.4)); } 50% { filter: drop-shadow(0 0 15px rgba(212,175,55,0.8)); } }
-    @keyframes borderGlow { 0%, 100% { border-color: rgba(212,175,55,0.3); } 50% { border-color: rgba(212,175,55,0.7); } }
-    @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes textGlow { 0%, 100% { text-shadow: 0 0 10px rgba(212,175,55,0.3); } 50% { text-shadow: 0 0 25px rgba(212,175,55,0.6), 0 0 50px rgba(212,175,55,0.3); } }
-    .shimmer-bg { background: linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.08) 50%, transparent 100%); background-size: 200% 100%; animation: shimmer 3s ease-in-out infinite; }
-    .glow-text { animation: textGlow 3s ease-in-out infinite; }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    @keyframes glow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(212,175,55,0.4)); } 50% { filter: drop-shadow(0 0 12px rgba(212,175,55,0.7)); } }
+    .shimmer-bg { background: linear-gradient(90deg, transparent, rgba(212,175,55,0.08), transparent); background-size: 200% 100%; animation: shimmer 3s infinite; }
     .float-anim { animation: float 4s ease-in-out infinite; }
     .glow-icon { animation: glow 2s ease-in-out infinite; }
-    .border-glow { animation: borderGlow 2s ease-in-out infinite; }
-    .fade-in { animation: fadeSlideIn 0.6s ease-out forwards; }
   </style>
 </head>
 <body>
@@ -55,91 +48,18 @@
     };
 
     const C = {
-      bg: '#050507',
-      bgDeep: '#020203',
-      bgCard: 'rgba(15,15,20,0.95)',
-      bgGlass: 'rgba(255,255,255,0.03)',
-      bgHover: 'rgba(212,175,55,0.08)',
-      gold: '#d4af37',
-      goldBright: '#f5d76e',
-      goldLight: '#e8d48b',
-      goldDark: '#8b6914',
-      goldMuted: 'rgba(212,175,55,0.5)',
-      text: '#f0ede5',
-      textSoft: '#c5c0b5',
-      textMuted: '#8a857a',
-      border: 'rgba(212,175,55,0.25)',
-      borderLight: 'rgba(212,175,55,0.12)',
-      success: '#8bc34a',
-      successDark: '#689f38',
-      error: '#ef5350',
-      optA: '#c62828',
-      optALight: '#ef5350',
-      optB: '#1565c0',
-      optBLight: '#42a5f5'
+      bg: '#050507', bgDeep: '#020203', bgCard: 'rgba(15,15,20,0.95)', bgGlass: 'rgba(255,255,255,0.03)',
+      gold: '#d4af37', goldBright: '#f5d76e', goldLight: '#e8d48b', goldDark: '#8b6914', goldMuted: 'rgba(212,175,55,0.5)',
+      text: '#f0ede5', textSoft: '#c5c0b5', textMuted: '#8a857a',
+      border: 'rgba(212,175,55,0.25)', borderLight: 'rgba(212,175,55,0.12)',
+      success: '#8bc34a', error: '#ef5350', optA: '#c62828', optALight: '#ef5350', optB: '#1565c0', optBLight: '#42a5f5'
     };
 
     const THEMES = {
-      fantasy: {
-        name: 'The Dragon\'s Awakening',
-        icon: '🐉',
-        tagline: 'Ancient prophecy unfolds...',
-        gradient: 'linear-gradient(135deg, rgba(139,69,19,0.15) 0%, rgba(20,10,5,0.9) 100%)',
-        opening: 'The ancient prophecy has come true — the Black Dragon awakens after a thousand years of slumber. The kingdom stands at the precipice of annihilation. The King has summoned heroes from all corners of the realm to determine the fate of civilization itself...',
-        rounds: [
-          { context: 'The dragon\'s shadow darkens the land. Flames lick the horizon. The council must decide before dawn breaks.', a: { text: 'March the army to the dragon\'s lair immediately. Strike before the beast regains its full devastating power.', tag: 'Strike First' }, b: { text: 'Send diplomatic envoys to seek the ancient Elves. They sealed this evil once before in ages past.', tag: 'Seek Allies' } },
-          { context: 'The chosen path reveals new challenges. Scouts return with troubling news. The council reconvenes.', a: { text: 'Press forward with overwhelming force. Fortune favors the bold, and hesitation means death.', tag: 'Press On' }, b: { text: 'Gather more allies and resources. United kingdoms have toppled greater evils than this.', tag: 'Unite Forces' } },
-          { context: 'A moment of truth arrives. The weight of every soul in the kingdom rests upon this decision.', a: { text: 'Invoke the forbidden arts of old. Some must sacrifice so that others may survive the flame.', tag: 'Dark Magic' }, b: { text: 'Hold our strength and wait. The right moment will reveal itself to those with patience.', tag: 'Bide Time' } },
-          { context: 'The battle reaches its crescendo. Heroes rise and fall. Legends are forged in blood and fire.', a: { text: 'Launch the final assault with everything we have. This ends now, one way or another.', tag: 'All-Out War' }, b: { text: 'Seek parley with the ancient beast. Perhaps wisdom can achieve what swords cannot.', tag: 'Negotiate' } },
-          { context: 'The final choice. History itself holds its breath. What you decide now echoes through eternity.', a: { text: 'Destroy the dragon at any cost. Even if this land turns to ash, evil must not triumph.', tag: 'Victory or Death' }, b: { text: 'Forge an unprecedented alliance with the dragon. A new age of coexistence begins.', tag: 'New Dawn' } }
-        ],
-        endings: { default: 'Through fire and shadow, through sacrifice and determination, the heroes forged their own legend. Whatever the outcome, this tale shall echo through the ages, whispered by bards in every tavern, remembered by all who dare to dream of glory.' }
-      },
-      scifi: {
-        name: 'The Last Signal',
-        icon: '🌌',
-        tagline: 'Humanity\'s darkest hour...',
-        gradient: 'linear-gradient(135deg, rgba(10,20,50,0.2) 0%, rgba(5,5,15,0.95) 100%)',
-        opening: 'Year 2157. Mars Colony "New Hope" intercepts a cryptic transmission from the cosmic void — Earth will be annihilated by an extinction-class asteroid in exactly 100 days. Available resources can evacuate only half the population. The countdown begins...',
-        rounds: [
-          { context: 'Panic spreads through the habitat corridors like wildfire. Leadership must act decisively before chaos consumes all hope.', a: { text: 'Initiate the Ark Protocol immediately. A fair lottery shall determine who boards the evacuation vessels.', tag: 'Random Selection' }, b: { text: 'Focus all resources on decoding the signal\'s origin. Perhaps an answer awaits among the stars.', tag: 'Follow Signal' } },
-          { context: 'New information emerges. Every decision carries the weight of millions of lives and the future of our species.', a: { text: 'Prioritize essential personnel, scientists, and young breeding pairs for maximum survival odds.', tag: 'Strategic Selection' }, b: { text: 'Every human life has equal worth. Selection must remain completely random regardless of utility.', tag: 'Pure Equality' } },
-          { context: 'Resources dwindle by the hour. Tensions approach breaking point. Unity fractures under pressure.', a: { text: 'Implement strict rationing under martial law. Order must be maintained at any cost.', tag: 'Martial Law' }, b: { text: 'Trust in humanity\'s better nature. Maintain freedoms even in our darkest hour.', tag: 'Preserve Freedom' } },
-          { context: 'Contact established with an alien intelligence. Their offer comes with strings attached.', a: { text: 'Accept their terms without question. Survival of our species supersedes all other concerns.', tag: 'Accept Terms' }, b: { text: 'Humanity bows to no master. We will find our own path or perish trying.', tag: 'Reject Offer' } },
-          { context: 'The final countdown. D-Day minus 24 hours. One last chance to save everything — or lose it all.', a: { text: 'Redirect all remaining power to the deflection array. Maximum effort, maximum risk.', tag: 'Final Gambit' }, b: { text: 'Accept partial loss and preserve what we can. Humanity will rebuild and remember.', tag: 'Preserve Remnant' } }
-        ],
-        endings: { default: 'In the vast darkness between stars, humanity faced its greatest test — not of technology or resources, but of character and unity. Whatever path was chosen, it was chosen together. And that made all the difference for those who would remember.' }
-      },
-      mystery: {
-        name: 'The Chen Manor Case',
-        icon: '🗝️',
-        tagline: 'Secrets buried in shadow...',
-        gradient: 'linear-gradient(135deg, rgba(40,30,20,0.2) 0%, rgba(10,8,5,0.95) 100%)',
-        opening: 'A tempest rages outside the ancient Chen Manor. Inside, the wealthy patriarch lies dead in his locked study — poisoned. The door was bolted from within, the windows sealed tight. Five souls remain trapped by the storm, each harboring secrets darker than the night itself...',
-        rounds: [
-          { context: 'The investigation must begin. Every moment that passes allows the killer to cover their tracks.', a: { text: 'Search the study thoroughly. Physical evidence never lies, unlike the frightened souls gathered here.', tag: 'Search Evidence' }, b: { text: 'Interview each suspect individually. Watch their eyes — fear and guilt leave unmistakable marks.', tag: 'Question Suspects' } },
-          { context: 'The first clues emerge from the darkness. Multiple threads lead in different directions.', a: { text: 'Follow the money trail. Inheritance has driven many to commit unspeakable acts.', tag: 'Follow Money' }, b: { text: 'Investigate the mysterious stranger. His convenient arrival cannot be mere coincidence.', tag: 'Investigate Stranger' } },
-          { context: 'The plot thickens considerably. Nothing in this house is as it first appears.', a: { text: 'Verify every alibi with ruthless precision. Someone\'s story will crack under scrutiny.', tag: 'Check Alibis' }, b: { text: 'Dig into the family\'s buried past. Old sins cast the longest shadows.', tag: 'Unearth Past' } },
-          { context: 'The truth begins to surface, but resistance grows. Someone is desperate to stop you.', a: { text: 'Confront the prime suspect directly and publicly. Pressure reveals truth.', tag: 'Direct Confrontation' }, b: { text: 'Re-examine the poison carefully. The murder weapon always points to the murderer.', tag: 'Analyze Weapon' } },
-          { context: 'Justice awaits its moment. The truth stands revealed at last. But at what cost?', a: { text: 'Expose everything to the authorities. Let the law deliver its impartial judgment.', tag: 'Full Justice' }, b: { text: 'Some truths destroy more than they heal. Perhaps mercy serves better than law.', tag: 'Tempered Mercy' } }
-        ],
-        endings: { default: 'In the end, justice took its peculiar form within these ancient walls. The truth, once buried deep in shadow, now stands in the cold light of day. But in the hearts of those who remain, some wounds may never fully heal.' }
-      },
-      political: {
-        name: 'The Succession',
-        icon: '⚔️',
-        tagline: 'Every crown demands its price...',
-        gradient: 'linear-gradient(135deg, rgba(80,20,20,0.15) 0%, rgba(15,5,10,0.95) 100%)',
-        opening: 'The Great Qi Dynasty, Year 30 of Yong\'an. The Emperor has drawn his final breath upon the Dragon Throne. His cryptic last edict shocks the realm: the crown passes to "whomever best serves the will of heaven and earth." Three princes. One throne. Countless schemes unfold in shadow...',
-        rounds: [
-          { context: 'The court holds its collective breath. Ancient factions emerge from decades of careful hiding.', a: { text: 'Support the Crown Prince as tradition demands. The realm needs stability above all else.', tag: 'Honor Tradition' }, b: { text: 'Propose an open competition of merit. Let worthy deeds determine the next emperor.', tag: 'Merit Selection' } },
-          { context: 'Alliances shift like desert sands. Power consolidates in unexpected hands.', a: { text: 'Secure the military\'s unwavering loyalty. In the end, swords determine who wears the crown.', tag: 'Military Power' }, b: { text: 'Win the scholars and historians. The pen shapes legacy longer than any blade.', tag: 'Scholar Support' } },
-          { context: 'External forces sense the empire\'s moment of weakness and mass at the borders.', a: { text: 'Display overwhelming strength at the frontiers. Wolves respect only fangs and fire.', tag: 'Show Strength' }, b: { text: 'Pursue peace through skilled diplomacy. War bleeds the land for generations.', tag: 'Seek Peace' } },
-          { context: 'Internal strife threatens to tear the ancient realm apart at its very foundations.', a: { text: 'Eliminate opposing factions decisively. Mercy to enemies is cruelty to the people.', tag: 'Decisive Action' }, b: { text: 'Seek compromise among all parties. A kingdom divided against itself cannot stand.', tag: 'Find Balance' } },
-          { context: 'The moment of imperial truth arrives. A dynasty\'s fate hangs upon your counsel.', a: { text: 'Establish revolutionary reforms. The old ways have failed; a new order must rise.', tag: 'New Order' }, b: { text: 'Preserve proven traditions while adapting. Evolution serves better than revolution.', tag: 'Gradual Reform' } }
-        ],
-        endings: { default: 'The game of thrones ultimately spares no player. In the eternal pursuit of power, some found glory beyond measure, others found only ruin and regret. But the great realm endures, as it always has — for that is the nature of empires and the people who dream them.' }
-      }
+      fantasy: { name: 'The Dragon\'s Awakening', icon: '🐉', tagline: 'Ancient prophecy unfolds...', opening: 'The ancient prophecy has come true — the Black Dragon awakens after a thousand years. The kingdom stands at the precipice. Heroes are summoned to determine the fate of all...', rounds: [{ context: 'The dragon\'s shadow looms. A decision must be made before dawn.', a: { text: 'March to the dragon\'s lair. Strike before it regains full power.', tag: 'Strike' }, b: { text: 'Seek the ancient Elves. They sealed this evil once before.', tag: 'Allies' } }, { context: 'The path reveals new challenges. The council reconvenes.', a: { text: 'Press forward with force. Fortune favors the bold.', tag: 'Bold' }, b: { text: 'Gather more allies. United we stand stronger.', tag: 'Unite' } }, { context: 'A moment of truth. Every soul watches with bated breath.', a: { text: 'Invoke forbidden arts. Some must fall so others survive.', tag: 'Sacrifice' }, b: { text: 'Hold our strength. The right moment will come.', tag: 'Wait' } }, { context: 'The battle reaches its peak. Heroes rise and fall.', a: { text: 'Launch the final assault. All or nothing.', tag: 'Attack' }, b: { text: 'Seek parley with the beast. Perhaps there is another way.', tag: 'Negotiate' } }, { context: 'The final choice. History will remember this moment.', a: { text: 'Destroy the dragon at any cost.', tag: 'Victory' }, b: { text: 'Forge an alliance. A new era begins.', tag: 'Peace' } }], endings: { default: 'Through fire and shadow, the heroes forged their legend. This tale shall echo through the ages.' } },
+      scifi: { name: 'The Last Signal', icon: '🌌', tagline: 'Humanity\'s darkest hour...', opening: 'Year 2157. Mars Colony receives a signal — Earth will be struck by an asteroid in 100 days. Resources can save only half. The countdown begins...', rounds: [{ context: 'Panic spreads. Leadership must act now.', a: { text: 'Initiate Ark Protocol. A lottery decides who lives.', tag: 'Lottery' }, b: { text: 'Decode the signal\'s origin. Answers may await in the stars.', tag: 'Explore' } }, { context: 'New information emerges. Every decision carries weight.', a: { text: 'Prioritize essential personnel for maximum survival.', tag: 'Elite' }, b: { text: 'Every life has equal worth. Random selection.', tag: 'Equal' } }, { context: 'Resources dwindle. Tensions rise.', a: { text: 'Implement martial law. Order must be maintained.', tag: 'Control' }, b: { text: 'Trust humanity. Maintain freedoms.', tag: 'Freedom' } }, { context: 'Contact with alien intelligence. Their offer has strings.', a: { text: 'Accept their terms. Survival first.', tag: 'Accept' }, b: { text: 'Reject. We find our own path.', tag: 'Reject' } }, { context: 'Final countdown. One last chance.', a: { text: 'All power to deflection. Maximum risk.', tag: 'Gambit' }, b: { text: 'Preserve what we can. Humanity will rebuild.', tag: 'Preserve' } }], endings: { default: 'In the darkness between stars, humanity faced its greatest test. Whatever was chosen, it was chosen together.' } },
+      mystery: { name: 'The Chen Manor Case', icon: '🗝️', tagline: 'Secrets in shadow...', opening: 'A storm rages outside Chen Manor. The patriarch lies dead — poisoned. Door locked from within. Five souls remain, each with secrets darker than the night...', rounds: [{ context: 'Investigation begins. Every moment counts.', a: { text: 'Search the study. Evidence never lies.', tag: 'Evidence' }, b: { text: 'Interview suspects. Watch their eyes.', tag: 'Interview' } }, { context: 'First clues emerge. Multiple threads appear.', a: { text: 'Follow the money. Inheritance corrupts.', tag: 'Money' }, b: { text: 'Investigate the stranger. Too convenient.', tag: 'Stranger' } }, { context: 'Plot thickens. Nothing is as it seems.', a: { text: 'Verify alibis. Someone will crack.', tag: 'Alibis' }, b: { text: 'Dig into the past. Old sins cast shadows.', tag: 'Past' } }, { context: 'Truth surfaces. Resistance grows.', a: { text: 'Confront the prime suspect directly.', tag: 'Confront' }, b: { text: 'Re-examine the poison. Weapon reveals all.', tag: 'Forensic' } }, { context: 'Justice awaits. Truth stands revealed.', a: { text: 'Expose everything. Let law decide.', tag: 'Justice' }, b: { text: 'Some truths destroy. Perhaps mercy serves better.', tag: 'Mercy' } }], endings: { default: 'Justice took its form within these walls. The truth now stands in light, but some wounds may never heal.' } },
+      political: { name: 'The Succession', icon: '⚔️', tagline: 'Every crown has its price...', opening: 'The Emperor has drawn his last breath. His edict: the throne passes to "whoever best serves the will of heaven." Three princes. One crown. Countless schemes...', rounds: [{ context: 'The court holds its breath. Factions emerge.', a: { text: 'Support the Crown Prince. Honor tradition.', tag: 'Tradition' }, b: { text: 'Propose merit selection. Let deeds decide.', tag: 'Merit' } }, { context: 'Alliances shift. Power consolidates.', a: { text: 'Secure military loyalty. Swords keep peace.', tag: 'Military' }, b: { text: 'Win the scholars. Pens shape history.', tag: 'Scholars' } }, { context: 'External forces sense weakness.', a: { text: 'Display strength at borders.', tag: 'Strength' }, b: { text: 'Pursue diplomatic peace.', tag: 'Diplomacy' } }, { context: 'Internal strife threatens the realm.', a: { text: 'Eliminate opposition. Mercy is weakness.', tag: 'Ruthless' }, b: { text: 'Seek compromise. United we stand.', tag: 'Balance' } }, { context: 'The moment of truth. Dynasty\'s fate awaits.', a: { text: 'Establish new order. Old ways failed.', tag: 'Revolution' }, b: { text: 'Preserve what works. Evolve gradually.', tag: 'Evolution' } }], endings: { default: 'The game of thrones spares none. In pursuit of power, some found glory, others ruin. But the realm endures.' } }
     };
 
     const AI_PLAYERS = [
@@ -149,21 +69,16 @@
     ];
 
     const genAIDebate = (style) => {
-      const d = {
-        analytical: { A: ['By careful analysis, Option A presents superior probability of success.', 'The evidence and logic strongly favor choosing A.', 'Rationally examining all factors, A emerges as optimal.'], B: ['Thorough analysis reveals B yields better long-term outcomes.', 'Strategic assessment clearly points toward Option B.', 'Considering all variables, B is the logical choice.'] },
-        bold: { A: ['Fortune favors the bold! Option A is the path of heroes!', 'Hesitation leads only to defeat — we must choose A!', 'A true warrior sees that A is our destiny!'], B: ['True courage often lies in the unexpected — B is that path!', 'B represents the bold move they won\'t anticipate!', 'The brave heart knows B leads to glory!'] },
-        cautious: { A: ['Though risks exist, A may be our most viable path forward.', 'Weighing all dangers, I reluctantly support Option A.', 'A offers acceptable risk for potential reward.'], B: ['Wisdom and patience counsel us toward Option B.', 'B preserves our options and protects our resources.', 'The prudent path is clearly B in this situation.'] }
-      };
+      const d = { analytical: { A: ['Logic favors A.', 'Evidence points to A.'], B: ['Analysis shows B optimal.', 'B yields better outcomes.'] }, bold: { A: ['Fortune favors bold! A!', 'No hesitation - A!'], B: ['True courage is B!', 'B is the warrior\'s path!'] }, cautious: { A: ['Risky, but A may work.', 'Lesser evil - support A.'], B: ['Wisdom says B.', 'B preserves options.'] } };
       const c = Math.random() > 0.5 ? 'A' : 'B';
-      const options = d[style]?.[c] || d.analytical[c];
-      return { text: options[Math.floor(Math.random() * options.length)], choice: c };
+      return { text: (d[style]?.[c] || d.analytical[c])[Math.floor(Math.random() * 2)], choice: c };
     };
 
     const S = {
-      title: { fontFamily: "'Cinzel', serif", letterSpacing: '0.12em', fontWeight: 600 },
-      card: { background: C.bgCard, backdropFilter: 'blur(12px)', border: `1px solid ${C.border}`, borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
-      btn: { fontFamily: "'Cinzel', serif", fontWeight: 600, letterSpacing: '0.08em', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', cursor: 'pointer' },
-      goldBtn: { background: `linear-gradient(135deg, ${C.gold} 0%, ${C.goldDark} 100%)`, color: '#0a0a0a', border: 'none', boxShadow: '0 4px 15px rgba(212,175,55,0.3)' },
+      title: { fontFamily: "'Cinzel', serif", letterSpacing: '0.1em', fontWeight: 600 },
+      card: { background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
+      btn: { fontFamily: "'Cinzel', serif", fontWeight: 600, letterSpacing: '0.05em', transition: 'all 0.3s', cursor: 'pointer' },
+      goldBtn: { background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, color: '#0a0a0a', border: 'none' },
       ghostBtn: { background: 'transparent', border: `1px solid ${C.border}`, color: C.goldMuted }
     };
 
@@ -195,28 +110,18 @@
       const roomChkRef = useRef(null);
       const lastRoundRef = useRef(0);
 
-      // Initialize Firebase and load data
       useEffect(() => {
         try {
           if (!firebase.apps.length) firebase.initializeApp(CONFIG.FIREBASE);
           const database = firebase.database();
           setDb(database);
-          
-          // Leaderboard listener - sync with players collection
           database.ref('players').on('value', s => {
             if (s.val()) {
-              const list = Object.entries(s.val())
-                .map(([id, p]) => ({ ...p, id }))
-                .filter(p => (p.exp || 0) > 0)
-                .sort((a, b) => (b.exp || 0) - (a.exp || 0));
+              const list = Object.entries(s.val()).map(([id, p]) => ({ ...p, id })).filter(p => (p.exp || 0) > 0).sort((a, b) => (b.exp || 0) - (a.exp || 0));
               setLb(list.slice(0, 50));
-            } else {
-              setLb([]);
-            }
+            } else setLb([]);
           });
-        } catch (e) { console.error('Firebase init error:', e); }
-        
-        // Load from localStorage
+        } catch (e) { console.error(e); }
         const sw = localStorage.getItem('cc_wallet');
         const sp = localStorage.getItem('cc_player');
         const sg = localStorage.getItem('cc_activegame');
@@ -224,52 +129,30 @@
         if (sw && sp) { try { setWallet(sw); setPlayer(JSON.parse(sp)); } catch {} }
         if (sg) setActiveGameId(sg);
         if (lrc) setLastRoomCreate(parseInt(lrc) || 0);
-        
-        // Verify wallet still connected
-        if (window.ethereum && sw) {
-          window.ethereum.request({ method: 'eth_accounts' }).then(a => {
-            if (a[0]?.toLowerCase() === sw.toLowerCase()) setWallet(a[0]);
-          });
-        }
-        
-        return () => {
-          if (timerRef.current) clearInterval(timerRef.current);
-          if (roomChkRef.current) clearInterval(roomChkRef.current);
-        };
+        if (window.ethereum && sw) { window.ethereum.request({ method: 'eth_accounts' }).then(a => { if (a[0]?.toLowerCase() === sw.toLowerCase()) setWallet(a[0]); }); }
+        return () => { if (timerRef.current) clearInterval(timerRef.current); if (roomChkRef.current) clearInterval(roomChkRef.current); };
       }, []);
 
-      // Sync player exp from Firebase - ensures consistency
       useEffect(() => {
         if (!db || !wallet) return;
         const ref = db.ref(`players/${wallet}`);
         ref.on('value', s => {
           const data = s.val();
-          if (data && data.exp !== undefined) {
-            setPlayer(prev => {
-              const updated = { ...prev, exp: data.exp, name: data.name || prev.name, avatar: data.avatar || prev.avatar };
-              localStorage.setItem('cc_player', JSON.stringify(updated));
-              return updated;
-            });
+          if (data?.exp !== undefined) {
+            setPlayer(prev => { const u = { ...prev, exp: data.exp, name: data.name || prev.name, avatar: data.avatar || prev.avatar }; localStorage.setItem('cc_player', JSON.stringify(u)); return u; });
           }
         });
         return () => ref.off();
       }, [db, wallet]);
 
-      // Load user history
       useEffect(() => {
         if (!db || !wallet) return;
         const ref = db.ref(`userHistory/${wallet}`);
-        ref.orderByChild('timestamp').limitToLast(50).on('value', s => {
-          if (s.val()) {
-            setHist(Object.values(s.val()).sort((a, b) => b.timestamp - a.timestamp));
-          } else {
-            setHist([]);
-          }
-        });
+        ref.orderByChild('timestamp').limitToLast(50).on('value', s => { if (s.val()) setHist(Object.values(s.val()).sort((a, b) => b.timestamp - a.timestamp)); else setHist([]); });
         return () => ref.off();
       }, [db, wallet]);
 
-      // Load available rooms - ONLY show waiting rooms
+      // Load rooms - only show waiting rooms that are not expired
       useEffect(() => {
         if (!db) return;
         const ref = db.ref('rooms');
@@ -279,39 +162,35 @@
           if (d) {
             const r = [];
             Object.entries(d).forEach(([id, rm]) => {
-              // Only show rooms with status 'waiting' and not expired
+              // Only show waiting rooms that haven't expired
               if (rm.status === 'waiting' && (now - rm.createdAt) < CONFIG.ROOM_TIMEOUT_CLOSE) {
                 r.push({ id, ...rm });
               }
-              // Auto-close expired waiting rooms
+              // Auto-close expired waiting rooms (not playing/ended rooms)
               if (rm.status === 'waiting' && (now - rm.createdAt) >= CONFIG.ROOM_TIMEOUT_CLOSE) {
-                db.ref(`rooms/${id}`).update({ status: 'closed' });
+                db.ref(`rooms/${id}`).update({ status: 'expired' });
               }
             });
             setRooms(r);
-          } else {
-            setRooms([]);
-          }
+          } else setRooms([]);
         });
         return () => ref.off();
       }, [db]);
 
-      // Listen to current room/game
       useEffect(() => {
         if (!db || !roomId) return;
         const rRef = db.ref(`rooms/${roomId}`);
         const gRef = db.ref(`games/${roomId}`);
-        
-        const roomHandler = s => {
+        const rh = s => {
           const d = s.val();
           if (d) {
             setRoomData(d);
             if (d.players) setPlayers(Object.values(d.players));
-            if (d.status === 'closed') {
-              // Room is closed, clear active game and return home
+            // If room is closed/expired and we're not in ended game state, go home
+            if ((d.status === 'closed' || d.status === 'expired') && game?.phase !== 'ended') {
               setActiveGameId(null);
               localStorage.removeItem('cc_activegame');
-              alert('This room has been closed.');
+              alert('Room is no longer available');
               reset();
             }
             if (d.status === 'playing' && view !== 'game') {
@@ -320,80 +199,55 @@
             }
           }
         };
-        
-        const gameHandler = s => {
+        const gh = s => {
           const d = s.val();
           if (d) {
             setGame(d);
-            if (d.messages) {
-              setMsgs(Object.values(d.messages).sort((a, b) => a.timestamp - b.timestamp));
-            }
-            if (d.round !== lastRoundRef.current) {
-              lastRoundRef.current = d.round;
-              setMyVote(null);
-            }
-            if (d.timerEnd && d.phase !== 'ended') {
-              setTimer(Math.max(0, Math.floor((d.timerEnd - Date.now()) / 1000)));
-            }
+            if (d.messages) setMsgs(Object.values(d.messages).sort((a, b) => a.timestamp - b.timestamp));
+            if (d.round !== lastRoundRef.current) { lastRoundRef.current = d.round; setMyVote(null); }
+            if (d.timerEnd && d.phase !== 'ended') setTimer(Math.max(0, Math.floor((d.timerEnd - Date.now()) / 1000)));
           }
         };
-        
-        rRef.on('value', roomHandler);
-        gRef.on('value', gameHandler);
-        
-        return () => {
-          rRef.off('value', roomHandler);
-          gRef.off('value', gameHandler);
-        };
-      }, [db, roomId, view]);
+        rRef.on('value', rh);
+        gRef.on('value', gh);
+        return () => { rRef.off('value', rh); gRef.off('value', gh); };
+      }, [db, roomId, view, game?.phase]);
 
-      // AI auto-fill after timeout
       useEffect(() => {
         if (!db || !roomId || !roomData || roomData.status !== 'waiting') return;
         if (roomChkRef.current) clearInterval(roomChkRef.current);
-        
         roomChkRef.current = setInterval(() => {
           const age = Date.now() - roomData.createdAt;
           const realCnt = Object.values(roomData.players || {}).filter(p => !p.isAI).length;
           if (age > CONFIG.ROOM_TIMEOUT_AI && realCnt === 1 && player.id === roomData.host) {
             const curIds = Object.keys(roomData.players || {});
-            const neededAIs = AI_PLAYERS.filter(ai => !curIds.includes(ai.id)).slice(0, CONFIG.ROOM_SIZE.min - 1);
-            neededAIs.forEach((ai, i) => {
-              setTimeout(() => db.ref(`rooms/${roomId}/players/${ai.id}`).set(ai), i * 800);
-            });
+            AI_PLAYERS.filter(ai => !curIds.includes(ai.id)).slice(0, CONFIG.ROOM_SIZE.min - 1).forEach((ai, i) => { setTimeout(() => db.ref(`rooms/${roomId}/players/${ai.id}`).set(ai), i * 800); });
           }
         }, 5000);
-        
         return () => { if (roomChkRef.current) clearInterval(roomChkRef.current); };
       }, [db, roomId, roomData, player.id]);
 
-      // Timer management
       useEffect(() => {
         if (!game?.timerEnd || game?.phase === 'ended') return;
         if (timerRef.current) clearInterval(timerRef.current);
-        
         timerRef.current = setInterval(() => {
           const rem = Math.max(0, Math.floor((game.timerEnd - Date.now()) / 1000));
           setTimer(rem);
-          if (rem <= 0 && player.id === roomData?.host && !processingPhase) {
-            phaseEnd();
-          }
+          if (rem <= 0 && player.id === roomData?.host && !processingPhase) phaseEnd();
         }, 1000);
-        
         return () => { if (timerRef.current) clearInterval(timerRef.current); };
       }, [game?.timerEnd, game?.phase, player.id, roomData?.host, processingPhase]);
 
       useEffect(() => { msgsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
 
       const connectWallet = async () => {
-        if (!window.ethereum) { alert('Please install MetaMask to play'); return null; }
+        if (!window.ethereum) { alert('Please install MetaMask'); return null; }
         setConnecting(true);
         try {
           const accs = await window.ethereum.request({ method: 'eth_requestAccounts' });
           const addr = accs[0];
           setWallet(addr);
           localStorage.setItem('cc_wallet', addr);
-          
           if (db) {
             const snap = await db.ref(`players/${addr}`).once('value');
             const saved = snap.val();
@@ -406,12 +260,8 @@
             }
           }
           return addr;
-        } catch (e) {
-          alert('Wallet connection failed');
-          return null;
-        } finally {
-          setConnecting(false);
-        }
+        } catch { alert('Connection failed'); return null; }
+        finally { setConnecting(false); }
       };
 
       const disconnect = () => {
@@ -427,57 +277,48 @@
         if (!window.ethereum) return false;
         setLoading(true);
         try {
-          await window.ethereum.request({
-            method: 'eth_sendTransaction',
-            params: [{ from: addr, to: CONFIG.GENLAYER_CONTRACT, value: '0x0', data: '0x' }]
-          });
+          await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: addr, to: CONFIG.GENLAYER_CONTRACT, value: '0x0', data: '0x' }] });
           return true;
-        } catch (e) {
-          console.log('Transaction cancelled or failed');
-          return false;
-        } finally {
-          setLoading(false);
-        }
+        } catch { return false; }
+        finally { setLoading(false); }
       };
 
       const recordToGL = async () => {
         if (!wallet || !window.ethereum) return;
-        try {
-          await window.ethereum.request({
-            method: 'eth_sendTransaction',
-            params: [{ from: wallet, to: CONFIG.GENLAYER_CONTRACT, value: '0x0', data: '0x01' }]
-          });
-        } catch {}
+        try { await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: wallet, to: CONFIG.GENLAYER_CONTRACT, value: '0x0', data: '0x01' }] }); } catch {}
       };
 
       const createRoom = async (theme) => {
-        if (!db || !player.name) {
-          alert('Please enter your name first');
-          return;
-        }
+        if (!db || !player.name) { alert('Please enter your name first'); return; }
         
-        // Check if already in active game
+        // Check if in active game
         if (activeGameId) {
-          alert('You are already in a game. Please return to continue or wait for it to end.');
-          return;
+          // Verify the game still exists and is active
+          const snap = await db.ref(`rooms/${activeGameId}`).once('value');
+          const roomVal = snap.val();
+          if (roomVal && (roomVal.status === 'waiting' || roomVal.status === 'playing')) {
+            alert('You are already in a game. Please return to continue or wait for it to end.');
+            return;
+          } else {
+            // Game no longer exists or ended, clear it
+            setActiveGameId(null);
+            localStorage.removeItem('cc_activegame');
+          }
         }
         
         // Check 2-minute cooldown
         const now = Date.now();
-        const timeSinceLastCreate = now - lastRoomCreate;
-        if (timeSinceLastCreate < CONFIG.ROOM_CREATE_COOLDOWN) {
-          const remaining = Math.ceil((CONFIG.ROOM_CREATE_COOLDOWN - timeSinceLastCreate) / 1000);
+        const timeSince = now - lastRoomCreate;
+        if (lastRoomCreate > 0 && timeSince < CONFIG.ROOM_CREATE_COOLDOWN) {
+          const remaining = Math.ceil((CONFIG.ROOM_CREATE_COOLDOWN - timeSince) / 1000);
           alert(`You have already created a room. Please wait ${remaining} seconds before creating another.`);
           return;
         }
         
         let addr = wallet;
-        if (!addr) {
-          addr = await connectWallet();
-          if (!addr) return;
-        }
+        if (!addr) { addr = await connectWallet(); if (!addr) return; }
         
-        // GenLayer transaction required
+        // GenLayer transaction
         const paid = await payFee(addr);
         if (!paid) return;
         
@@ -487,9 +328,7 @@
           host: addr,
           status: 'waiting',
           createdAt: now,
-          players: {
-            [addr]: { id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false }
-          }
+          players: { [addr]: { id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false } }
         });
         
         setRoomId(rid);
@@ -501,35 +340,29 @@
       };
 
       const joinRoom = async (rid) => {
-        if (!db || !player.name) {
-          alert('Please enter your name first');
-          return;
-        }
+        if (!db || !player.name) { alert('Please enter your name first'); return; }
         
-        // Check if already in active game
+        // Check if in active game
         if (activeGameId && activeGameId !== rid) {
-          alert('You are already in a game. Please return to continue or wait for it to end.');
-          return;
+          const snap = await db.ref(`rooms/${activeGameId}`).once('value');
+          const roomVal = snap.val();
+          if (roomVal && (roomVal.status === 'waiting' || roomVal.status === 'playing')) {
+            alert('You are already in a game. Please return to continue or wait for it to end.');
+            return;
+          } else {
+            setActiveGameId(null);
+            localStorage.removeItem('cc_activegame');
+          }
         }
         
         let addr = wallet;
-        if (!addr) {
-          addr = await connectWallet();
-          if (!addr) return;
-        }
+        if (!addr) { addr = await connectWallet(); if (!addr) return; }
         
-        // GenLayer transaction required
+        // GenLayer transaction
         const paid = await payFee(addr);
         if (!paid) return;
         
-        await db.ref(`rooms/${rid}/players/${addr}`).set({
-          id: addr,
-          name: player.name,
-          avatar: player.avatar,
-          exp: player.exp,
-          isAI: false
-        });
-        
+        await db.ref(`rooms/${rid}/players/${addr}`).set({ id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false });
         setRoomId(rid);
         setActiveGameId(rid);
         localStorage.setItem('cc_activegame', rid);
@@ -553,228 +386,136 @@
       const addAI = async () => {
         if (!db || !roomId) return;
         const curIds = Object.keys(roomData?.players || {});
-        const ais = AI_PLAYERS.filter(ai => !curIds.includes(ai.id)).slice(0, Math.min(3, CONFIG.ROOM_SIZE.max - curIds.length));
-        for (const ai of ais) {
-          await db.ref(`rooms/${roomId}/players/${ai.id}`).set(ai);
-        }
+        AI_PLAYERS.filter(ai => !curIds.includes(ai.id)).slice(0, 3).forEach(ai => db.ref(`rooms/${roomId}/players/${ai.id}`).set(ai));
       };
 
       const startGame = async () => {
         if (!db || !roomId || players.length < CONFIG.ROOM_SIZE.min) return;
-        
         await db.ref(`rooms/${roomId}`).update({ status: 'playing' });
-        
         const theme = roomData?.theme || 'fantasy';
         const arc = THEMES[theme];
         const scores = {};
         players.forEach(p => { scores[p.id] = { influence: 0, debates: 0, wins: 0 }; });
-        
-        await db.ref(`games/${roomId}`).set({
-          round: 1,
-          phase: 'debate',
-          path: [],
-          scores,
-          votes: {},
-          story: [{ text: arc.opening, type: 'opening', round: 0 }],
-          timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000,
-          messages: {}
-        });
-        
+        await db.ref(`games/${roomId}`).set({ round: 1, phase: 'debate', path: [], scores, votes: {}, story: [{ text: arc.opening, type: 'opening', round: 0 }], timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000, messages: {} });
         lastRoundRef.current = 1;
-        addMsg('system', `📖 ${arc.name} begins! Round 1 of ${CONFIG.TOTAL_ROUNDS}`);
+        addMsg('system', `📖 ${arc.name} begins! Round 1/${CONFIG.TOTAL_ROUNDS}`);
         setTimeout(() => aiDebate(), 3000);
       };
 
       const aiDebate = () => {
         players.filter(p => p.isAI).forEach((ai, i) => {
-          setTimeout(() => {
-            const d = genAIDebate(ai.style);
-            addMsg('chat', d.text, ai, d.choice);
-          }, (i + 1) * 2500 + Math.random() * 4000);
+          setTimeout(() => { const d = genAIDebate(ai.style); addMsg('chat', d.text, ai, d.choice); }, (i + 1) * 2500 + Math.random() * 4000);
         });
       };
 
       const phaseEnd = async () => {
         if (!db || !roomId || !game || processingPhase) return;
         setProcessingPhase(true);
-        
         try {
           if (game.phase === 'debate') {
-            await db.ref(`games/${roomId}`).update({
-              phase: 'vote',
-              timerEnd: Date.now() + CONFIG.VOTE_DURATION * 1000,
-              votes: {}
-            });
-            addMsg('system', '🗳️ Voting phase begins! Cast your vote now.');
-            
-            // AI votes
-            players.filter(p => p.isAI).forEach((ai, i) => {
-              setTimeout(async () => {
-                const choice = Math.random() > 0.5 ? 'A' : 'B';
-                await db.ref(`games/${roomId}/votes/${ai.id}`).set(choice);
-              }, (i + 1) * 800);
-            });
+            await db.ref(`games/${roomId}`).update({ phase: 'vote', timerEnd: Date.now() + CONFIG.VOTE_DURATION * 1000, votes: {} });
+            addMsg('system', '🗳️ Voting begins!');
+            players.filter(p => p.isAI).forEach((ai, i) => { setTimeout(async () => { await db.ref(`games/${roomId}/votes/${ai.id}`).set(Math.random() > 0.5 ? 'A' : 'B'); }, (i + 1) * 800); });
           } else if (game.phase === 'vote') {
             await calcResult();
           }
-        } finally {
-          setProcessingPhase(false);
-        }
+        } finally { setProcessingPhase(false); }
       };
 
       const calcResult = async () => {
         if (!db || !roomId || !game) return;
-        
-        // Wait for all votes to sync
         await new Promise(r => setTimeout(r, 500));
-        
-        // Read votes directly from Firebase
-        const votesSnap = await db.ref(`games/${roomId}/votes`).once('value');
-        const currentVotes = votesSnap.val() || {};
-        
+        const vs = await db.ref(`games/${roomId}/votes`).once('value');
+        const cv = vs.val() || {};
         const cnt = { A: 0, B: 0 };
-        Object.values(currentVotes).forEach(v => {
-          if (v === 'A') cnt.A++;
-          else if (v === 'B') cnt.B++;
-        });
-        
+        Object.values(cv).forEach(v => { if (v === 'A') cnt.A++; else if (v === 'B') cnt.B++; });
         const winner = cnt.A >= cnt.B ? 'A' : 'B';
         const round = game.round;
         const theme = roomData?.theme || 'fantasy';
         const arc = THEMES[theme];
         const rd = arc.rounds[round - 1];
         const winOpt = winner === 'A' ? rd?.a : rd?.b;
-        
-        // Read current scores
-        const scoresSnap = await db.ref(`games/${roomId}/scores`).once('value');
-        const newScores = scoresSnap.val() || {};
-        
-        // Update scores for winners
-        Object.entries(currentVotes).forEach(([id, v]) => {
-          if (v === winner && newScores[id]) {
-            newScores[id].influence = (newScores[id].influence || 0) + 30;
-            newScores[id].wins = (newScores[id].wins || 0) + 1;
-          }
-        });
-        
+        const ss = await db.ref(`games/${roomId}/scores`).once('value');
+        const newScores = ss.val() || {};
+        Object.entries(cv).forEach(([id, v]) => { if (v === winner && newScores[id]) { newScores[id].influence = (newScores[id].influence || 0) + 30; newScores[id].wins = (newScores[id].wins || 0) + 1; } });
         const newPath = [...(game.path || []), winner];
-        const newStory = [
-          ...(game.story || []),
-          { text: `The council has spoken: Option ${winner} prevails (${cnt[winner]} to ${cnt[winner === 'A' ? 'B' : 'A']})`, type: 'choice', round, winner },
-          { text: winOpt?.text, type: 'consequence', round }
-        ];
-        
-        addMsg('system', `⚖️ Option ${winner} wins with ${cnt[winner]} votes!`);
+        const newStory = [...(game.story || []), { text: `Council chose ${winner} (${cnt[winner]} vs ${cnt[winner === 'A' ? 'B' : 'A']})`, type: 'choice', round, winner }, { text: winOpt?.text, type: 'consequence', round }];
+        addMsg('system', `⚖️ Option ${winner} wins!`);
 
         if (round >= CONFIG.TOTAL_ROUNDS) {
           const ending = arc.endings.default;
-          
-          // CLOSE THE ROOM - game ended
-          await db.ref(`rooms/${roomId}`).update({ status: 'closed' });
-          
-          await db.ref(`games/${roomId}`).update({
-            phase: 'ended',
-            scores: newScores,
-            path: newPath,
-            story: [...newStory, { text: ending, type: 'ending', round }],
-            timerEnd: null,
-            votes: {}
-          });
-          
-          addMsg('system', '🏆 The Chronicle is Complete!');
+          // DON'T close room here - close when player exits
+          await db.ref(`games/${roomId}`).update({ phase: 'ended', scores: newScores, path: newPath, story: [...newStory, { text: ending, type: 'ending', round }], timerEnd: null, votes: {} });
+          addMsg('system', '🏆 Chronicle Complete!');
           await recordToGL();
           
           const realCount = players.filter(p => !p.isAI).length;
           const aiCount = players.filter(p => p.isAI).length;
-          
-          // Update player exp using transaction to ensure consistency
           for (const [pid, sc] of Object.entries(newScores)) {
             const p = players.find(x => x.id === pid);
             if (p && !p.isAI) {
               const earnedExp = (sc.influence || 0) + (sc.debates || 0);
-              
-              // Save to user history
-              await db.ref(`userHistory/${pid}`).push().set({
-                id: Date.now(),
-                timestamp: Date.now(),
-                theme,
-                path: newPath.join(''),
-                ending: ending.slice(0, 100) + '...',
-                datetime: new Date().toISOString(),
-                realPlayers: realCount,
-                aiPlayers: aiCount,
-                earnedExp,
-                roomId
-              });
-              
-              // Use transaction to ensure exp consistency
+              await db.ref(`userHistory/${pid}`).push().set({ id: Date.now(), timestamp: Date.now(), theme, path: newPath.join(''), ending: ending.slice(0, 100) + '...', datetime: new Date().toISOString(), realPlayers: realCount, aiPlayers: aiCount, earnedExp, roomId });
               if (earnedExp > 0) {
-                await db.ref(`players/${pid}`).transaction(currentData => {
-                  if (currentData === null) {
-                    return { name: p.name, avatar: p.avatar, exp: earnedExp };
-                  }
-                  return {
-                    ...currentData,
-                    name: p.name,
-                    avatar: p.avatar,
-                    exp: (currentData.exp || 0) + earnedExp
-                  };
+                await db.ref(`players/${pid}`).transaction(cur => {
+                  if (!cur) return { name: p.name, avatar: p.avatar, exp: earnedExp };
+                  return { ...cur, name: p.name, avatar: p.avatar, exp: (cur.exp || 0) + earnedExp };
                 });
               }
             }
           }
-          
-          // Clear active game
-          setActiveGameId(null);
-          localStorage.removeItem('cc_activegame');
         } else {
           const nextRd = round + 1;
-          const nextCtx = arc.rounds[nextRd - 1]?.context || 'The story continues...';
-          
-          await db.ref(`games/${roomId}`).update({
-            round: nextRd,
-            phase: 'debate',
-            scores: newScores,
-            path: newPath,
-            story: [...newStory, { text: nextCtx, type: 'context', round: nextRd }],
-            timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000,
-            votes: {}
-          });
-          
-          addMsg('system', `📖 Round ${nextRd} of ${CONFIG.TOTAL_ROUNDS} — Debate Phase`);
+          await db.ref(`games/${roomId}`).update({ round: nextRd, phase: 'debate', scores: newScores, path: newPath, story: [...newStory, { text: arc.rounds[nextRd - 1]?.context, type: 'context', round: nextRd }], timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000, votes: {} });
+          addMsg('system', `📖 Round ${nextRd}/${CONFIG.TOTAL_ROUNDS}`);
           setMyVote(null);
           setTimeout(() => aiDebate(), 3000);
         }
       };
 
       const addMsg = async (type, text, sender = null, choice = null) => {
-        if (db && roomId) {
-          await db.ref(`games/${roomId}/messages`).push().set({ type, text, sender, choice, timestamp: Date.now() });
-        }
+        if (db && roomId) await db.ref(`games/${roomId}/messages`).push().set({ type, text, sender, choice, timestamp: Date.now() });
       };
 
       const submitDebate = async () => {
         if (!input.trim() || game?.phase !== 'debate') return;
-        const upperInput = input.toUpperCase();
-        const c = upperInput.includes('OPTION A') || upperInput.includes(' A ') || upperInput.endsWith(' A') || upperInput.startsWith('A ')
-          ? 'A'
-          : upperInput.includes('OPTION B') || upperInput.includes(' B ') || upperInput.endsWith(' B') || upperInput.startsWith('B ')
-          ? 'B'
-          : null;
-        
+        const c = input.toUpperCase().includes('A') ? 'A' : input.toUpperCase().includes('B') ? 'B' : null;
         await addMsg('chat', input, { id: player.id, name: player.name, avatar: player.avatar }, c);
         setInput('');
-        
-        // Update debate score
-        const curDebates = game?.scores?.[player.id]?.debates || 0;
-        await db.ref(`games/${roomId}/scores/${player.id}/debates`).set(curDebates + 10);
+        const cd = game?.scores?.[player.id]?.debates || 0;
+        await db.ref(`games/${roomId}/scores/${player.id}/debates`).set(cd + 10);
       };
 
       const vote = async (c) => {
         if (game?.phase !== 'vote' || myVote) return;
         setMyVote(c);
         await db.ref(`games/${roomId}/votes/${player.id}`).set(c);
-        addMsg('system', `${player.name} has cast their vote`);
+        addMsg('system', `${player.name} voted`);
+      };
+
+      // Exit game and close room if game ended
+      const exitGame = async () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        if (roomChkRef.current) clearInterval(roomChkRef.current);
+        
+        // If game ended, close the room
+        if (game?.phase === 'ended' && db && roomId) {
+          await db.ref(`rooms/${roomId}`).update({ status: 'closed' });
+        }
+        
+        // Clear active game
+        setActiveGameId(null);
+        localStorage.removeItem('cc_activegame');
+        
+        setRoomId(null);
+        setRoomData(null);
+        setGame(null);
+        setPlayers([]);
+        setMsgs([]);
+        setMyVote(null);
+        lastRoundRef.current = 0;
+        setProcessingPhase(false);
+        setView('home');
       };
 
       const reset = () => {
@@ -793,308 +534,118 @@
 
       const clearHistory = async () => {
         if (!db || !wallet) return;
-        if (confirm('Clear all your game history? This cannot be undone.')) {
-          await db.ref(`userHistory/${wallet}`).remove();
-          setHist([]);
-        }
+        if (confirm('Clear all history?')) { await db.ref(`userHistory/${wallet}`).remove(); setHist([]); }
       };
 
       const fmtTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
       const shortAddr = a => a ? `${a.slice(0, 6)}...${a.slice(-4)}` : '';
-      
-      const getOpts = () => {
-        if (!game || !roomData) return { a: null, b: null };
-        const rd = THEMES[roomData.theme]?.rounds[(game.round || 1) - 1];
-        return { a: rd?.a, b: rd?.b };
-      };
-      
+      const getOpts = () => { if (!game || !roomData) return { a: null, b: null }; const rd = THEMES[roomData.theme]?.rounds[(game.round || 1) - 1]; return { a: rd?.a, b: rd?.b }; };
       const opts = getOpts();
       const votes = game?.votes || {};
       const themeData = roomData?.theme ? THEMES[roomData.theme] : null;
 
-      // Rules Modal
       const RulesModal = () => showRules && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-          <div className="fade-in" style={{ ...S.card, padding: '2.5rem', maxWidth: '580px', maxHeight: '85vh', overflowY: 'auto' }}>
-            <h2 style={{ ...S.title, color: C.gold, marginBottom: '2rem', textAlign: 'center', fontSize: '1.4rem' }} className="glow-text">⚜️ CHRONICLE PROTOCOL ⚜️</h2>
-            <div style={{ color: C.textSoft, lineHeight: 2, fontSize: '0.95rem' }}>
-              <div style={{ marginBottom: '1.2rem', padding: '1.2rem', background: C.bgGlass, borderRadius: '10px', borderLeft: `4px solid ${C.gold}` }}>
-                <h3 style={{ ...S.title, color: C.goldLight, marginBottom: '0.5rem', fontSize: '0.95rem' }}>🎯 PURPOSE</h3>
-                <p>Guide the narrative through 5 rounds of collective decisions. Debate your position, vote with conviction, and shape destiny together.</p>
-              </div>
-              <div style={{ marginBottom: '1.2rem', padding: '1.2rem', background: C.bgGlass, borderRadius: '10px', borderLeft: `4px solid ${C.gold}` }}>
-                <h3 style={{ ...S.title, color: C.goldLight, marginBottom: '0.5rem', fontSize: '0.95rem' }}>🔗 ENTRY REQUIREMENTS</h3>
-                <p>• Connect MetaMask wallet<br/>• Confirm GenLayer transaction (0 GEN fee)<br/>• Maximum one room creation per 2 minutes</p>
-              </div>
-              <div style={{ marginBottom: '1.2rem', padding: '1.2rem', background: C.bgGlass, borderRadius: '10px', borderLeft: `4px solid ${C.gold}` }}>
-                <h3 style={{ ...S.title, color: C.goldLight, marginBottom: '0.5rem', fontSize: '0.95rem' }}>⏱️ TIMING</h3>
-                <p>• 2-8 players per chronicle<br/>• AI companions join after 60 seconds<br/>• Empty rooms close after 120 seconds</p>
-              </div>
-              <div style={{ marginBottom: '1.2rem', padding: '1.2rem', background: C.bgGlass, borderRadius: '10px', borderLeft: `4px solid ${C.gold}` }}>
-                <h3 style={{ ...S.title, color: C.goldLight, marginBottom: '0.5rem', fontSize: '0.95rem' }}>⭐ REWARDS</h3>
-                <p>• Debate contribution: +10 EXP<br/>• Winning vote: +30 EXP<br/>• Final results recorded on GenLayer blockchain</p>
-              </div>
+          <div style={{ ...S.card, padding: '2rem', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
+            <h2 style={{ ...S.title, color: C.gold, marginBottom: '1.5rem', textAlign: 'center' }}>⚜️ RULES ⚜️</h2>
+            <div style={{ color: C.textSoft, lineHeight: 1.8, fontSize: '0.9rem' }}>
+              <p style={{ marginBottom: '1rem', padding: '0.8rem', background: C.bgGlass, borderRadius: '8px', borderLeft: `3px solid ${C.gold}` }}><b>🎯 Goal:</b> Guide narrative through 5 rounds of decisions.</p>
+              <p style={{ marginBottom: '1rem', padding: '0.8rem', background: C.bgGlass, borderRadius: '8px', borderLeft: `3px solid ${C.gold}` }}><b>🔗 Entry:</b> Connect wallet + GenLayer transaction (0 GEN). One room per 2 minutes.</p>
+              <p style={{ marginBottom: '1rem', padding: '0.8rem', background: C.bgGlass, borderRadius: '8px', borderLeft: `3px solid ${C.gold}` }}><b>⏱️ Timing:</b> 2-8 players. AI joins after 60s. Room expires after 120s.</p>
+              <p style={{ marginBottom: '1rem', padding: '0.8rem', background: C.bgGlass, borderRadius: '8px', borderLeft: `3px solid ${C.gold}` }}><b>⭐ Rewards:</b> Debate +10 EXP, Win vote +30 EXP. Results on GenLayer.</p>
             </div>
-            <button onClick={() => setShowRules(false)} style={{ ...S.btn, ...S.goldBtn, width: '100%', padding: '1rem', marginTop: '1.5rem', borderRadius: '10px', fontSize: '1rem' }}>
-              UNDERSTOOD
-            </button>
+            <button onClick={() => setShowRules(false)} style={{ ...S.btn, ...S.goldBtn, width: '100%', padding: '0.9rem', marginTop: '1rem', borderRadius: '8px' }}>OK</button>
           </div>
         </div>
       );
 
       // HOME VIEW
       if (view === 'home') return (
-        <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at top center, rgba(30,25,15,0.4) 0%, ${C.bg} 60%, ${C.bgDeep} 100%)` }}>
+        <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at top, rgba(30,25,15,0.3), ${C.bg})` }}>
           <RulesModal />
-          
-          {/* Decorative background */}
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 5L35 25L55 30L35 35L30 55L25 35L5 30L25 25L30 5Z\' fill=\'rgba(212,175,55,0.02)\'/%3E%3C/svg%3E")', opacity: 0.5, pointerEvents: 'none' }} />
-          
-          {/* Header */}
-          <header style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem 2.5rem', borderBottom: `1px solid ${C.borderLight}`, background: 'rgba(5,5,7,0.8)', backdropFilter: 'blur(10px)' }}>
+          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: `1px solid ${C.borderLight}`, background: 'rgba(5,5,7,0.8)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}><span style={{ fontSize: '1.8rem' }} className="glow-icon">📜</span><div><h1 style={{ ...S.title, color: C.gold, fontSize: '1.2rem' }}>CONSENSUS CHRONICLE</h1><p style={{ color: C.textMuted, fontSize: '0.65rem', letterSpacing: '0.2em' }}>SHAPE HISTORY TOGETHER</p></div></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ fontSize: '2rem' }} className="glow-icon">📜</div>
-              <div>
-                <h1 style={{ ...S.title, color: C.gold, fontSize: '1.3rem', marginBottom: '0.15rem' }} className="glow-text">CONSENSUS CHRONICLE</h1>
-                <p style={{ color: C.textMuted, fontSize: '0.7rem', letterSpacing: '0.25em', fontFamily: "'Cinzel', serif" }}>SHAPE HISTORY TOGETHER</p>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-              {player.name && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.6rem 1.2rem', background: C.bgGlass, borderRadius: '25px', border: `1px solid ${C.borderLight}` }}>
-                  <span style={{ fontSize: '1.4rem' }}>{player.avatar}</span>
-                  <span style={{ color: C.textSoft, fontSize: '0.95rem', fontWeight: 500 }}>{player.name}</span>
-                  <span style={{ ...S.title, color: C.goldBright, fontWeight: 700 }}>⭐ {player.exp}</span>
-                </div>
-              )}
-              {wallet ? (
-                <button onClick={disconnect} style={{ ...S.btn, ...S.ghostBtn, padding: '0.6rem 1.2rem', borderRadius: '25px', fontSize: '0.8rem' }} title="Disconnect wallet">
-                  🔗 {shortAddr(wallet)}
-                </button>
-              ) : (
-                <button onClick={connectWallet} disabled={connecting} style={{ ...S.btn, ...S.goldBtn, padding: '0.7rem 1.5rem', borderRadius: '25px', fontSize: '0.9rem' }}>
-                  {connecting ? '⏳' : '🦊 Connect Wallet'}
-                </button>
-              )}
+              {player.name && <span style={{ color: C.textSoft, fontSize: '0.9rem' }}>{player.avatar} {player.name} • <span style={{ color: C.goldBright, fontWeight: 700 }}>⭐{player.exp}</span></span>}
+              {wallet ? <button onClick={disconnect} style={{ ...S.btn, ...S.ghostBtn, padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem' }}>🔗 {shortAddr(wallet)}</button> : <button onClick={connectWallet} disabled={connecting} style={{ ...S.btn, ...S.goldBtn, padding: '0.6rem 1.2rem', borderRadius: '20px', fontSize: '0.85rem' }}>{connecting ? '...' : '🦊 Connect'}</button>}
             </div>
           </header>
-          
-          {/* Tabs */}
-          <nav style={{ position: 'relative', display: 'flex', justifyContent: 'center', gap: '0.6rem', padding: '1.2rem', borderBottom: `1px solid ${C.borderLight}`, background: 'rgba(5,5,7,0.5)' }}>
-            {[{ k: 'chronicles', l: '📜 Chronicles' }, { k: 'rankings', l: '🏆 Rankings' }, { k: 'archive', l: '📚 Archive' }].map(t => (
-              <button key={t.k} onClick={() => setTab(t.k)} style={{
-                ...S.btn,
-                padding: '0.7rem 1.8rem',
-                background: tab === t.k ? C.bgHover : 'transparent',
-                border: `1px solid ${tab === t.k ? C.border : 'transparent'}`,
-                borderRadius: '8px',
-                color: tab === t.k ? C.gold : C.textMuted,
-                fontSize: '0.95rem'
-              }}>
-                {t.l}
-              </button>
-            ))}
-            <button onClick={() => setShowRules(true)} style={{ ...S.btn, padding: '0.7rem 1.8rem', background: 'transparent', border: `1px solid ${C.borderLight}`, borderRadius: '8px', color: C.goldMuted, fontSize: '0.95rem' }}>
-              📖 Rules
-            </button>
+          <nav style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', padding: '1rem', borderBottom: `1px solid ${C.borderLight}` }}>
+            {[{ k: 'chronicles', l: '📜 Chronicles' }, { k: 'rankings', l: '🏆 Rankings' }, { k: 'archive', l: '📚 Archive' }].map(t => <button key={t.k} onClick={() => setTab(t.k)} style={{ ...S.btn, padding: '0.6rem 1.5rem', background: tab === t.k ? C.bgGlass : 'transparent', border: `1px solid ${tab === t.k ? C.border : 'transparent'}`, borderRadius: '6px', color: tab === t.k ? C.gold : C.textMuted, fontSize: '0.9rem' }}>{t.l}</button>)}
+            <button onClick={() => setShowRules(true)} style={{ ...S.btn, padding: '0.6rem 1.5rem', background: 'transparent', border: `1px solid ${C.borderLight}`, borderRadius: '6px', color: C.goldMuted, fontSize: '0.9rem' }}>📖 Rules</button>
           </nav>
-          
-          <main style={{ position: 'relative', maxWidth: '1100px', margin: '0 auto', padding: '2.5rem' }}>
-            {tab === 'chronicles' && (
-              <>
-                {!player.name ? (
-                  <div className="fade-in" style={{ maxWidth: '450px', margin: '4rem auto', textAlign: 'center' }}>
-                    <div style={{ fontSize: '5rem', marginBottom: '1.5rem' }} className="float-anim glow-icon">⚜️</div>
-                    <h2 style={{ ...S.title, color: C.gold, marginBottom: '1rem', fontSize: '1.6rem' }} className="glow-text">Enter Your Name</h2>
-                    <p style={{ color: C.textMuted, marginBottom: '2.5rem', fontSize: '1.1rem' }}>Your identity in the chronicles awaits...</p>
-                    <input
-                      type="text"
-                      placeholder="Your legendary name..."
-                      style={{ width: '100%', padding: '1.3rem', fontSize: '1.2rem', background: C.bgCard, border: `2px solid ${C.border}`, borderRadius: '12px', color: C.text, outline: 'none', textAlign: 'center', fontFamily: "'Crimson Text', serif" }}
-                      onFocus={e => { e.target.style.borderColor = C.gold; e.target.style.boxShadow = `0 0 20px rgba(212,175,55,0.2)`; }}
-                      onBlur={e => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && e.target.value.trim()) {
-                          const n = e.target.value.trim();
-                          setPlayer(p => ({ ...p, name: n }));
-                          if (wallet) {
-                            localStorage.setItem('cc_player', JSON.stringify({ ...player, name: n }));
-                            db?.ref(`players/${wallet}`).update({ name: n, avatar: player.avatar });
-                          }
-                        }
-                      }}
-                    />
-                    <p style={{ marginTop: '1rem', color: C.textMuted, fontSize: '0.9rem' }}>Press Enter to confirm</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* GenLayer Notice */}
-                    <div className="shimmer-bg" style={{ textAlign: 'center', marginBottom: '2rem', padding: '1rem 2rem', background: C.bgGlass, borderRadius: '10px', border: `1px solid ${C.borderLight}` }}>
-                      <p style={{ ...S.title, color: C.goldMuted, fontSize: '0.85rem', letterSpacing: '0.1em' }}>⛓️ GENLAYER TRANSACTION REQUIRED • FIREBASE: REAL-TIME DATA • GENLAYER: FINAL RESULTS</p>
-                    </div>
-                    
-                    {/* Active Game Banner */}
-                    {activeGameId && (
-                      <div className="fade-in border-glow" style={{ ...S.card, marginBottom: '2.5rem', padding: '1.5rem 2rem', background: `linear-gradient(135deg, rgba(139,195,74,0.1) 0%, ${C.bgCard} 100%)`, borderColor: C.success }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div>
-                            <h3 style={{ ...S.title, color: C.success, marginBottom: '0.4rem', fontSize: '1.1rem' }}>🎮 ACTIVE CHRONICLE</h3>
-                            <p style={{ color: C.textSoft, fontSize: '0.95rem' }}>Your story awaits continuation...</p>
-                          </div>
-                          <button onClick={() => rejoinGame(activeGameId)} style={{ ...S.btn, padding: '0.9rem 2.5rem', background: `linear-gradient(135deg, ${C.success} 0%, ${C.successDark} 100%)`, border: 'none', borderRadius: '10px', color: '#fff', fontSize: '1rem', boxShadow: '0 4px 15px rgba(139,195,74,0.3)' }}>
-                            Return to Chronicle
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Available Rooms */}
-                    {rooms.length > 0 && (
-                      <div className="fade-in" style={{ marginBottom: '3rem' }}>
-                        <h3 style={{ ...S.title, color: C.goldLight, marginBottom: '1.5rem', fontSize: '1.15rem' }}>🚪 OPEN CHRONICLES</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                          {rooms.map(r => (
-                            <div key={r.id} style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.3rem 1.8rem' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-                                <div style={{ fontSize: '2.8rem' }} className="glow-icon">{THEMES[r.theme]?.icon}</div>
-                                <div>
-                                  <div style={{ ...S.title, fontWeight: 600, color: C.text, marginBottom: '0.3rem', fontSize: '1.05rem' }}>{THEMES[r.theme]?.name}</div>
-                                  <div style={{ fontSize: '0.85rem', color: C.textMuted }}>{THEMES[r.theme]?.tagline} • {Object.keys(r.players || {}).length}/{CONFIG.ROOM_SIZE.max} chroniclers</div>
-                                </div>
-                              </div>
-                              <button onClick={() => joinRoom(r.id)} disabled={loading || (activeGameId && activeGameId !== r.id)} style={{ ...S.btn, ...S.goldBtn, padding: '0.8rem 2rem', borderRadius: '8px', fontSize: '0.95rem', opacity: (loading || (activeGameId && activeGameId !== r.id)) ? 0.5 : 1 }}>
-                                {loading ? '⏳' : 'JOIN'}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Theme Selection */}
-                    <h3 style={{ ...S.title, color: C.goldLight, marginBottom: '2rem', textAlign: 'center', fontSize: '1.3rem' }} className="glow-text">⚜️ BEGIN A NEW CHRONICLE ⚜️</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
-                      {Object.entries(THEMES).map(([k, t]) => (
-                        <button
-                          key={k}
-                          onClick={() => createRoom(k)}
-                          disabled={loading || activeGameId}
-                          style={{
-                            ...S.card,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            padding: '2.5rem 1.5rem',
-                            cursor: (loading || activeGameId) ? 'not-allowed' : 'pointer',
-                            opacity: (loading || activeGameId) ? 0.5 : 1,
-                            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            background: t.gradient
-                          }}
-                          onMouseOver={e => { if (!loading && !activeGameId) { e.currentTarget.style.transform = 'translateY(-8px)'; e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.4), 0 0 30px rgba(212,175,55,0.15)'; } }}
-                          onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = S.card.boxShadow; }}
-                        >
-                          <div className="shimmer-bg" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-                          <span style={{ fontSize: '4rem', marginBottom: '1rem', position: 'relative' }} className="glow-icon">{t.icon}</span>
-                          <span style={{ ...S.title, fontSize: '1.15rem', fontWeight: 700, color: C.gold, marginBottom: '0.6rem', position: 'relative' }}>{t.name}</span>
-                          <span style={{ fontSize: '0.9rem', color: C.textMuted, textAlign: 'center', position: 'relative' }}>{t.tagline}</span>
-                        </button>
-                      ))}
-                    </div>
-                    
-                    {loading && (
-                      <div style={{ textAlign: 'center', padding: '2.5rem', marginTop: '1rem' }}>
-                        <div style={{ ...S.title, color: C.gold, fontSize: '1.1rem', animation: 'pulse 1.5s ease-in-out infinite' }}>⏳ Awaiting blockchain confirmation...</div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-            
-            {tab === 'rankings' && (
-              <div className="fade-in" style={{ maxWidth: '700px', margin: '0 auto' }}>
-                <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-                  <h2 style={{ ...S.title, color: C.gold, fontSize: '1.6rem', marginBottom: '0.6rem' }} className="glow-text">🏆 HALL OF CHRONICLES 🏆</h2>
-                  <p style={{ color: C.textMuted, fontSize: '1rem' }}>Greatest chroniclers ranked by total experience</p>
+          <main style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
+            {tab === 'chronicles' && (<>
+              {!player.name ? (
+                <div style={{ maxWidth: '400px', margin: '3rem auto', textAlign: 'center' }}>
+                  <div style={{ fontSize: '4rem', marginBottom: '1rem' }} className="float-anim glow-icon">⚜️</div>
+                  <h2 style={{ ...S.title, color: C.gold, marginBottom: '0.8rem' }}>Enter Your Name</h2>
+                  <input type="text" placeholder="Your name..." style={{ width: '100%', padding: '1rem', fontSize: '1rem', background: C.bgCard, border: `2px solid ${C.border}`, borderRadius: '10px', color: C.text, outline: 'none', textAlign: 'center' }} onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { const n = e.target.value.trim(); setPlayer(p => ({ ...p, name: n })); if (wallet) { localStorage.setItem('cc_player', JSON.stringify({ ...player, name: n })); db?.ref(`players/${wallet}`).update({ name: n, avatar: player.avatar }); } } }} />
+                  <p style={{ marginTop: '0.5rem', color: C.textMuted, fontSize: '0.8rem' }}>Press Enter</p>
                 </div>
-                {lb.length === 0 ? (
-                  <div style={{ ...S.card, padding: '5rem 2rem', textAlign: 'center' }}>
-                    <p style={{ color: C.textMuted, fontSize: '1.2rem' }}>No chronicles recorded yet. Be the first legend!</p>
+              ) : (<>
+                <div className="shimmer-bg" style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '0.8rem', background: C.bgGlass, borderRadius: '8px', border: `1px solid ${C.borderLight}` }}><p style={{ color: C.goldMuted, fontSize: '0.85rem' }}>⛓️ GenLayer Transaction Required • Firebase: Real-time • GenLayer: Final Results</p></div>
+                
+                {activeGameId && (
+                  <div style={{ ...S.card, marginBottom: '2rem', padding: '1.2rem', background: `linear-gradient(135deg, rgba(139,195,74,0.1), ${C.bgCard})`, borderColor: C.success }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div><h3 style={{ ...S.title, color: C.success }}>🎮 Active Game</h3><p style={{ color: C.textSoft, fontSize: '0.85rem' }}>You have an ongoing chronicle</p></div>
+                      <button onClick={() => rejoinGame(activeGameId)} style={{ ...S.btn, padding: '0.7rem 1.5rem', background: `linear-gradient(135deg, ${C.success}, #558b2f)`, border: 'none', borderRadius: '8px', color: '#fff' }}>Return (Free)</button>
+                    </div>
                   </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                    {lb.map((e, i) => (
-                      <div key={e.id || i} style={{
-                        ...S.card,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '1.2rem',
-                        padding: '1.1rem 1.8rem',
-                        background: i === 0 ? `linear-gradient(135deg, rgba(212,175,55,0.15) 0%, ${C.bgCard} 100%)` : i < 3 ? `linear-gradient(135deg, rgba(212,175,55,0.08) 0%, ${C.bgCard} 100%)` : C.bgCard,
-                        borderColor: i === 0 ? C.gold : i < 3 ? C.goldMuted : C.border
-                      }} className={i === 0 ? 'border-glow' : ''}>
-                        <span style={{ ...S.title, fontWeight: 800, color: i < 3 ? C.goldBright : C.textMuted, width: '2.5rem', fontSize: '1.2rem' }}>#{i + 1}</span>
-                        <span style={{ fontSize: '2rem' }}>{e.avatar || '🎭'}</span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, color: C.text, fontSize: '1.05rem' }}>{e.name || 'Unknown'}</div>
-                          <div style={{ fontSize: '0.75rem', color: C.textMuted }}>{shortAddr(e.id)}</div>
-                        </div>
-                        <div style={{ ...S.title, fontWeight: 700, color: C.goldBright, fontSize: '1.4rem' }}>⭐ {e.exp || 0}</div>
+                )}
+                
+                {rooms.length > 0 && (
+                  <div style={{ marginBottom: '2rem' }}>
+                    <h3 style={{ ...S.title, color: C.goldLight, marginBottom: '1rem' }}>🚪 Open Rooms</h3>
+                    {rooms.map(r => (
+                      <div key={r.id} style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', marginBottom: '0.8rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}><span style={{ fontSize: '2rem' }}>{THEMES[r.theme]?.icon}</span><div><div style={{ ...S.title, color: C.text }}>{THEMES[r.theme]?.name}</div><div style={{ fontSize: '0.8rem', color: C.textMuted }}>{Object.keys(r.players || {}).length}/{CONFIG.ROOM_SIZE.max} players</div></div></div>
+                        <button onClick={() => joinRoom(r.id)} disabled={loading} style={{ ...S.btn, ...S.goldBtn, padding: '0.6rem 1.5rem', borderRadius: '6px', opacity: loading ? 0.5 : 1 }}>{loading ? '...' : 'Join'}</button>
                       </div>
                     ))}
                   </div>
                 )}
+                
+                <h3 style={{ ...S.title, color: C.goldLight, marginBottom: '1.2rem', textAlign: 'center' }}>⚜️ Create New Chronicle ⚜️</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.2rem' }}>
+                  {Object.entries(THEMES).map(([k, t]) => (
+                    <button key={k} onClick={() => createRoom(k)} disabled={loading} style={{ ...S.card, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem 1.2rem', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1, transition: 'all 0.3s' }} onMouseOver={e => { if (!loading) e.currentTarget.style.borderColor = C.gold; }} onMouseOut={e => e.currentTarget.style.borderColor = C.border}>
+                      <span style={{ fontSize: '3.5rem', marginBottom: '0.8rem' }} className="glow-icon">{t.icon}</span>
+                      <span style={{ ...S.title, fontSize: '1rem', color: C.gold, marginBottom: '0.3rem' }}>{t.name}</span>
+                      <span style={{ fontSize: '0.8rem', color: C.textMuted, textAlign: 'center' }}>{t.tagline}</span>
+                    </button>
+                  ))}
+                </div>
+                {loading && <div style={{ textAlign: 'center', padding: '1.5rem', color: C.gold, animation: 'pulse 1.5s infinite' }}>⏳ Awaiting transaction...</div>}
+              </>)}
+            </>)}
+            {tab === 'rankings' && (
+              <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+                <h2 style={{ ...S.title, color: C.gold, textAlign: 'center', marginBottom: '1.5rem' }}>🏆 Leaderboard</h2>
+                {lb.length === 0 ? <p style={{ textAlign: 'center', color: C.textMuted, padding: '3rem' }}>No records yet</p> : lb.map((e, i) => (
+                  <div key={e.id || i} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.9rem 1.2rem', marginBottom: '0.6rem', background: i === 0 ? `linear-gradient(135deg, rgba(212,175,55,0.15), ${C.bgCard})` : C.bgCard, borderColor: i === 0 ? C.gold : C.border }}>
+                    <span style={{ ...S.title, fontWeight: 700, color: i < 3 ? C.goldBright : C.textMuted, width: '2rem' }}>#{i + 1}</span>
+                    <span style={{ fontSize: '1.5rem' }}>{e.avatar || '🎭'}</span>
+                    <div style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{e.name || 'Unknown'}</div><div style={{ fontSize: '0.7rem', color: C.textMuted }}>{shortAddr(e.id)}</div></div>
+                    <span style={{ ...S.title, color: C.goldBright, fontWeight: 700, fontSize: '1.1rem' }}>⭐ {e.exp || 0}</span>
+                  </div>
+                ))}
               </div>
             )}
-            
             {tab === 'archive' && (
-              <div className="fade-in" style={{ maxWidth: '800px', margin: '0 auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
-                  <div>
-                    <h2 style={{ ...S.title, color: C.gold, fontSize: '1.6rem', marginBottom: '0.4rem' }} className="glow-text">📚 YOUR CHRONICLE ARCHIVE</h2>
-                    <p style={{ color: C.textMuted }}>Stories you have helped shape through time</p>
-                  </div>
-                  {hist.length > 0 && (
-                    <button onClick={clearHistory} style={{ ...S.btn, ...S.ghostBtn, padding: '0.6rem 1.2rem', borderRadius: '8px', fontSize: '0.85rem', borderColor: C.error, color: C.error }}>
-                      Clear All
-                    </button>
-                  )}
+              <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h2 style={{ ...S.title, color: C.gold }}>📚 Your History</h2>
+                  {hist.length > 0 && <button onClick={clearHistory} style={{ ...S.btn, ...S.ghostBtn, padding: '0.4rem 0.8rem', borderRadius: '5px', fontSize: '0.75rem', borderColor: C.error, color: C.error }}>Clear</button>}
                 </div>
-                {!wallet ? (
-                  <div style={{ ...S.card, padding: '5rem 2rem', textAlign: 'center' }}>
-                    <p style={{ color: C.textMuted, fontSize: '1.2rem' }}>Connect your wallet to view your chronicle history</p>
+                {!wallet ? <p style={{ textAlign: 'center', color: C.textMuted, padding: '3rem' }}>Connect wallet</p> : hist.length === 0 ? <p style={{ textAlign: 'center', color: C.textMuted, padding: '3rem' }}>No history</p> : hist.map((g, i) => (
+                  <div key={g.id || i} style={{ ...S.card, padding: '1rem', marginBottom: '0.8rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}><span style={{ fontWeight: 600 }}>{THEMES[g.theme]?.icon} {THEMES[g.theme]?.name}</span><span style={{ fontSize: '0.75rem', color: C.textMuted }}>{new Date(g.timestamp).toLocaleDateString()}</span></div>
+                    <div style={{ fontSize: '0.8rem', color: C.textSoft, marginBottom: '0.5rem' }}>{g.realPlayers || 1}+{g.aiPlayers || 0}AI • <span style={{ color: C.goldBright, fontWeight: 600 }}>+{g.earnedExp || 0} EXP</span> • {g.path?.split('').map((c, j) => <span key={j} style={{ display: 'inline-block', padding: '0.1rem 0.35rem', margin: '0 0.1rem', background: c === 'A' ? `${C.optA}30` : `${C.optB}30`, borderRadius: '3px', color: c === 'A' ? C.optALight : C.optBLight, fontSize: '0.7rem' }}>{c}</span>)}</div>
+                    <p style={{ fontSize: '0.85rem', color: C.textMuted, fontStyle: 'italic' }}>"{g.ending}"</p>
                   </div>
-                ) : hist.length === 0 ? (
-                  <div style={{ ...S.card, padding: '5rem 2rem', textAlign: 'center' }}>
-                    <p style={{ color: C.textMuted, fontSize: '1.2rem' }}>No chronicles yet. Begin your legendary journey!</p>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {hist.map((g, i) => (
-                      <div key={g.id || i} style={{ ...S.card, padding: '1.5rem 1.8rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <span style={{ fontSize: '1.8rem' }}>{THEMES[g.theme]?.icon}</span>
-                            <span style={{ ...S.title, fontWeight: 600, color: C.text, fontSize: '1.05rem' }}>{THEMES[g.theme]?.name}</span>
-                          </div>
-                          <span style={{ fontSize: '0.85rem', color: C.textMuted }}>{new Date(g.timestamp).toLocaleDateString()}</span>
-                        </div>
-                        <div style={{ display: 'flex', gap: '2rem', fontSize: '0.9rem', color: C.textSoft, marginBottom: '1rem' }}>
-                          <span>{g.realPlayers || 1} players + {g.aiPlayers || 0} AI</span>
-                          <span style={{ ...S.title, color: C.goldBright, fontWeight: 700 }}>+{g.earnedExp || 0} EXP</span>
-                          <span>
-                            Path: {g.path?.split('').map((c, j) => (
-                              <span key={j} style={{ display: 'inline-block', padding: '0.15rem 0.5rem', margin: '0 0.2rem', background: c === 'A' ? `${C.optA}30` : `${C.optB}30`, borderRadius: '4px', color: c === 'A' ? C.optALight : C.optBLight, fontSize: '0.8rem', fontWeight: 600 }}>{c}</span>
-                            ))}
-                          </span>
-                        </div>
-                        <p style={{ fontSize: '0.95rem', color: C.textMuted, fontStyle: 'italic', lineHeight: 1.6, borderLeft: `3px solid ${C.borderLight}`, paddingLeft: '1rem' }}>"{g.ending}"</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                ))}
               </div>
             )}
           </main>
@@ -1105,71 +656,35 @@
       if (view === 'room') {
         const age = roomData ? Math.floor((Date.now() - roomData.createdAt) / 1000) : 0;
         return (
-          <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at center, rgba(30,25,15,0.3) 0%, ${C.bg} 70%, ${C.bgDeep} 100%)` }}>
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: `1px solid ${C.borderLight}`, background: 'rgba(5,5,7,0.8)', backdropFilter: 'blur(10px)' }}>
-              <button onClick={reset} style={{ ...S.btn, ...S.ghostBtn, padding: '0.6rem 1rem', borderRadius: '8px', fontSize: '0.9rem' }}>← Return</button>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: '1.6rem', marginRight: '0.6rem' }}>{themeData?.icon}</span>
-                <span style={{ ...S.title, color: C.gold, fontSize: '1.1rem' }}>{themeData?.name}</span>
-              </div>
-              <span style={{ color: C.textMuted, fontSize: '0.95rem' }}>{player.avatar} {player.name}</span>
+          <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at center, rgba(30,25,15,0.2), ${C.bg})` }}>
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: `1px solid ${C.borderLight}`, background: 'rgba(5,5,7,0.8)' }}>
+              <button onClick={reset} style={{ ...S.btn, ...S.ghostBtn, padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem' }}>← Back</button>
+              <div><span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{themeData?.icon}</span><span style={{ ...S.title, color: C.gold }}>{themeData?.name}</span></div>
+              <span style={{ color: C.textMuted }}>{player.avatar} {player.name}</span>
             </header>
-            
-            <div className="fade-in" style={{ maxWidth: '700px', margin: '0 auto', padding: '3rem 2rem' }}>
-              <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-                <div style={{ fontSize: '6rem', marginBottom: '1.5rem' }} className="float-anim glow-icon">{themeData?.icon}</div>
-                <h2 style={{ ...S.title, color: C.gold, fontSize: '2rem', marginBottom: '0.5rem' }} className="glow-text">{themeData?.name}</h2>
-                <p style={{ color: C.textMuted, fontStyle: 'italic', fontSize: '1.1rem', marginBottom: '1rem' }}>{themeData?.tagline}</p>
-                <p style={{ color: C.goldMuted, fontSize: '0.95rem' }}>Gathering chroniclers... {age}s</p>
+            <div style={{ maxWidth: '600px', margin: '0 auto', padding: '2.5rem 2rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+                <div style={{ fontSize: '5rem', marginBottom: '1rem' }} className="float-anim glow-icon">{themeData?.icon}</div>
+                <h2 style={{ ...S.title, color: C.gold, fontSize: '1.6rem', marginBottom: '0.4rem' }}>{themeData?.name}</h2>
+                <p style={{ color: C.textMuted, fontStyle: 'italic', marginBottom: '0.8rem' }}>{themeData?.tagline}</p>
+                <p style={{ color: C.goldMuted }}>Waiting {age}s</p>
               </div>
-              
-              {age > 60 && (
-                <div style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '1rem', background: `${C.gold}10`, borderRadius: '10px', border: `1px solid ${C.border}` }}>
-                  <p style={{ color: C.goldMuted, fontSize: '0.95rem' }}>⏳ AI chroniclers will join momentarily...</p>
-                </div>
-              )}
-              
-              <h3 style={{ ...S.title, color: C.goldMuted, marginBottom: '1.2rem', fontSize: '0.9rem', textAlign: 'center', letterSpacing: '0.15em' }}>
-                CHRONICLERS ({players.length}/{CONFIG.ROOM_SIZE.max})
-              </h3>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '3rem' }}>
+              {age > 60 && <div style={{ textAlign: 'center', marginBottom: '1rem', padding: '0.7rem', background: `${C.gold}10`, borderRadius: '8px', border: `1px solid ${C.border}` }}><p style={{ color: C.goldMuted }}>⏳ AI joining soon...</p></div>}
+              <h3 style={{ ...S.title, color: C.goldMuted, marginBottom: '1rem', fontSize: '0.85rem', textAlign: 'center', letterSpacing: '0.1em' }}>PLAYERS ({players.length}/{CONFIG.ROOM_SIZE.max})</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', marginBottom: '2rem' }}>
                 {players.map(p => (
-                  <div key={p.id} style={{
-                    ...S.card,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    padding: '1.5rem 1rem',
-                    background: p.id === player.id ? `linear-gradient(135deg, rgba(212,175,55,0.12) 0%, ${C.bgCard} 100%)` : C.bgCard,
-                    borderColor: p.id === player.id ? C.gold : C.border,
-                    position: 'relative'
-                  }} className={p.id === player.id ? 'border-glow' : ''}>
-                    <span style={{ fontSize: '2.5rem', marginBottom: '0.6rem' }}>{p.avatar}</span>
-                    <span style={{ fontSize: '0.9rem', color: C.text, textAlign: 'center', fontWeight: 500 }}>{p.name}</span>
-                    {p.isAI && <span style={{ position: 'absolute', top: '0.5rem', left: '0.5rem', fontSize: '0.6rem', padding: '0.15rem 0.5rem', background: C.optB, borderRadius: '4px', color: '#fff', fontWeight: 600 }}>AI</span>}
-                    {p.id === roomData?.host && <span style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', fontSize: '0.6rem', padding: '0.15rem 0.5rem', background: C.gold, borderRadius: '4px', color: '#000', fontWeight: 600 }}>HOST</span>}
+                  <div key={p.id} style={{ ...S.card, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.2rem 0.8rem', background: p.id === player.id ? `linear-gradient(135deg, rgba(212,175,55,0.1), ${C.bgCard})` : C.bgCard, borderColor: p.id === player.id ? C.gold : C.border, position: 'relative' }}>
+                    <span style={{ fontSize: '2rem', marginBottom: '0.4rem' }}>{p.avatar}</span>
+                    <span style={{ fontSize: '0.8rem', color: C.text, textAlign: 'center' }}>{p.name}</span>
+                    {p.isAI && <span style={{ position: 'absolute', top: '0.4rem', left: '0.4rem', fontSize: '0.55rem', padding: '0.1rem 0.4rem', background: C.optB, borderRadius: '3px', color: '#fff' }}>AI</span>}
+                    {p.id === roomData?.host && <span style={{ position: 'absolute', top: '0.4rem', right: '0.4rem', fontSize: '0.55rem', padding: '0.1rem 0.4rem', background: C.gold, borderRadius: '3px', color: '#000' }}>HOST</span>}
                   </div>
                 ))}
               </div>
-              
-              {player.id === roomData?.host && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <button onClick={startGame} disabled={players.length < CONFIG.ROOM_SIZE.min} style={{
-                    ...S.btn,
-                    width: '100%',
-                    padding: '1.2rem',
-                    fontSize: '1.15rem',
-                    borderRadius: '12px',
-                    ...(players.length >= CONFIG.ROOM_SIZE.min ? S.goldBtn : S.ghostBtn)
-                  }}>
-                    {players.length >= CONFIG.ROOM_SIZE.min ? '⚔️ BEGIN CHRONICLE' : `Awaiting ${CONFIG.ROOM_SIZE.min - players.length} more chronicler(s)`}
-                  </button>
-                  <button onClick={addAI} style={{ ...S.btn, ...S.ghostBtn, width: '100%', padding: '0.9rem', borderRadius: '10px', fontSize: '1rem' }}>
-                    🤖 Summon AI Chroniclers
-                  </button>
-                </div>
-              )}
+              {player.id === roomData?.host && (<>
+                <button onClick={startGame} disabled={players.length < CONFIG.ROOM_SIZE.min} style={{ ...S.btn, width: '100%', padding: '1rem', fontSize: '1rem', borderRadius: '10px', marginBottom: '0.8rem', ...(players.length >= CONFIG.ROOM_SIZE.min ? S.goldBtn : S.ghostBtn) }}>{players.length >= CONFIG.ROOM_SIZE.min ? '⚔️ Start Game' : `Need ${CONFIG.ROOM_SIZE.min - players.length} more`}</button>
+                <button onClick={addAI} style={{ ...S.btn, ...S.ghostBtn, width: '100%', padding: '0.7rem', borderRadius: '8px' }}>🤖 Add AI</button>
+              </>)}
             </div>
           </div>
         );
@@ -1178,186 +693,85 @@
       // GAME VIEW
       return (
         <div style={{ height: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {/* Header */}
-          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1.5rem', background: 'rgba(5,5,7,0.9)', borderBottom: `1px solid ${C.borderLight}`, height: '60px', flexShrink: 0 }}>
-            <button onClick={reset} style={{ ...S.btn, ...S.ghostBtn, padding: '0.5rem 0.9rem', borderRadius: '6px', fontSize: '0.8rem' }}>← Exit</button>
-            
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '0.7rem', color: C.textMuted, letterSpacing: '0.15em', marginBottom: '0.1rem' }}>ROUND {game?.round || 1} OF {CONFIG.TOTAL_ROUNDS}</div>
-              <div style={{ ...S.title, fontSize: '0.95rem', color: game?.phase === 'debate' ? C.goldLight : game?.phase === 'vote' ? C.success : C.gold }}>
-                {game?.phase === 'debate' && '💬 DELIBERATION'}
-                {game?.phase === 'vote' && '🗳️ JUDGMENT'}
-                {game?.phase === 'ended' && '📜 CHRONICLE COMPLETE'}
-              </div>
-            </div>
-            
-            <div style={{
-              ...S.title,
-              fontSize: '2.2rem',
-              fontWeight: 700,
-              color: timer <= 10 && game?.phase !== 'ended' ? C.error : C.gold,
-              textShadow: timer <= 10 && game?.phase !== 'ended' ? `0 0 25px ${C.error}` : `0 0 15px rgba(212,175,55,0.3)`
-            }}>
-              {game?.phase === 'ended' ? '—' : fmtTime(timer)}
-            </div>
-            
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.65rem', color: C.textMuted, letterSpacing: '0.15em' }}>INFLUENCE</div>
-              <div style={{ ...S.title, fontSize: '1.4rem', fontWeight: 700, color: C.goldBright }}>
-                {(game?.scores?.[player.id]?.influence || 0) + (game?.scores?.[player.id]?.debates || 0)}
-              </div>
-            </div>
+          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem 1.5rem', background: 'rgba(5,5,7,0.9)', borderBottom: `1px solid ${C.borderLight}`, height: '55px', flexShrink: 0 }}>
+            <button onClick={exitGame} style={{ ...S.btn, ...S.ghostBtn, padding: '0.4rem 0.8rem', borderRadius: '5px', fontSize: '0.75rem' }}>← Exit</button>
+            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '0.65rem', color: C.textMuted, letterSpacing: '0.1em' }}>ROUND {game?.round || 1}/{CONFIG.TOTAL_ROUNDS}</div><div style={{ ...S.title, fontSize: '0.85rem', color: game?.phase === 'debate' ? C.goldLight : game?.phase === 'vote' ? C.success : C.gold }}>{game?.phase === 'debate' && '💬 DEBATE'}{game?.phase === 'vote' && '🗳️ VOTE'}{game?.phase === 'ended' && '📜 COMPLETE'}</div></div>
+            <div style={{ ...S.title, fontSize: '1.8rem', fontWeight: 700, color: timer <= 10 && game?.phase !== 'ended' ? C.error : C.gold }}>{game?.phase === 'ended' ? '—' : fmtTime(timer)}</div>
+            <div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.6rem', color: C.textMuted, letterSpacing: '0.1em' }}>SCORE</div><div style={{ ...S.title, fontSize: '1.2rem', fontWeight: 700, color: C.goldBright }}>{(game?.scores?.[player.id]?.influence || 0) + (game?.scores?.[player.id]?.debates || 0)}</div></div>
           </header>
-          
-          {/* Main */}
-          <div style={{ flex: 1, display: 'flex', gap: '1rem', padding: '1rem', minHeight: 0 }}>
-            {/* Left Panel */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
-              {/* Story */}
-              <div style={{ ...S.card, flex: 1, padding: '1.3rem', overflowY: 'auto', minHeight: 0 }}>
-                <h3 style={{ ...S.title, color: C.gold, marginBottom: '1rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <span className="glow-icon">{themeData?.icon}</span> {themeData?.name}
-                </h3>
+          <div style={{ flex: 1, display: 'flex', gap: '0.8rem', padding: '0.8rem', minHeight: 0 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.8rem', minWidth: 0 }}>
+              <div style={{ ...S.card, flex: 1, padding: '1rem', overflowY: 'auto', minHeight: 0 }}>
+                <h3 style={{ ...S.title, color: C.gold, marginBottom: '0.8rem', fontSize: '0.9rem' }}>{themeData?.icon} {themeData?.name}</h3>
                 {(game?.story || []).map((s, i) => (
-                  <div key={i} style={{ marginBottom: '1rem' }} className="fade-in">
-                    {s.type === 'opening' && <p style={{ color: C.goldLight, fontStyle: 'italic', lineHeight: 1.9, fontSize: '0.95rem' }}>{s.text}</p>}
-                    {s.type === 'context' && (
-                      <div style={{ borderLeft: `4px solid ${C.gold}`, paddingLeft: '1.2rem', marginTop: '1.2rem' }}>
-                        <span style={{ ...S.title, display: 'inline-block', background: `${C.gold}20`, padding: '0.25rem 0.7rem', borderRadius: '5px', fontSize: '0.7rem', color: C.gold, marginBottom: '0.6rem' }}>ROUND {s.round}</span>
-                        <p style={{ color: C.textSoft, lineHeight: 1.8, fontSize: '0.9rem' }}>{s.text}</p>
-                      </div>
-                    )}
-                    {s.type === 'choice' && <p style={{ color: C.success, lineHeight: 1.7, fontSize: '0.9rem', fontWeight: 600 }}>⚖️ {s.text}</p>}
-                    {s.type === 'consequence' && <p style={{ color: C.textSoft, lineHeight: 1.7, fontSize: '0.9rem', paddingLeft: '1rem', borderLeft: `3px solid ${C.borderLight}`, fontStyle: 'italic' }}>"{s.text}"</p>}
-                    {s.type === 'ending' && (
-                      <div style={{ marginTop: '1.5rem', padding: '1.5rem', background: `linear-gradient(135deg, ${C.gold}12 0%, transparent 100%)`, borderRadius: '12px', border: `1px solid ${C.border}` }}>
-                        <p style={{ ...S.title, color: C.gold, lineHeight: 1.9, fontSize: '0.95rem' }}>📜 {s.text}</p>
-                      </div>
-                    )}
+                  <div key={i} style={{ marginBottom: '0.8rem' }}>
+                    {s.type === 'opening' && <p style={{ color: C.goldLight, fontStyle: 'italic', lineHeight: 1.7, fontSize: '0.9rem' }}>{s.text}</p>}
+                    {s.type === 'context' && <div style={{ borderLeft: `3px solid ${C.gold}`, paddingLeft: '1rem', marginTop: '1rem' }}><span style={{ ...S.title, display: 'inline-block', background: `${C.gold}20`, padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.65rem', color: C.gold, marginBottom: '0.4rem' }}>R{s.round}</span><p style={{ color: C.textSoft, lineHeight: 1.6, fontSize: '0.85rem' }}>{s.text}</p></div>}
+                    {s.type === 'choice' && <p style={{ color: C.success, lineHeight: 1.5, fontSize: '0.85rem', fontWeight: 600 }}>⚖️ {s.text}</p>}
+                    {s.type === 'consequence' && <p style={{ color: C.textSoft, lineHeight: 1.6, fontSize: '0.85rem', paddingLeft: '1rem', borderLeft: `2px solid ${C.borderLight}`, fontStyle: 'italic' }}>"{s.text}"</p>}
+                    {s.type === 'ending' && <div style={{ marginTop: '1rem', padding: '1rem', background: `linear-gradient(135deg, ${C.gold}10, transparent)`, borderRadius: '10px', border: `1px solid ${C.border}` }}><p style={{ ...S.title, color: C.gold, lineHeight: 1.7, fontSize: '0.9rem' }}>📜 {s.text}</p></div>}
                   </div>
                 ))}
               </div>
-              
-              {/* Options */}
               {(game?.phase === 'debate' || game?.phase === 'vote') && opts.a && (
-                <div style={{ ...S.card, padding: '1rem', flexShrink: 0 }}>
-                  <h4 style={{ ...S.title, textAlign: 'center', marginBottom: '1rem', color: C.goldMuted, fontSize: '0.85rem', letterSpacing: '0.2em' }}>⚔️ THE CHOICE BEFORE YOU ⚔️</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    {[{ k: 'A', o: opts.a, c: C.optA, cl: C.optALight, bg: 'linear-gradient(135deg, rgba(198,40,40,0.12) 0%, rgba(10,5,5,0.95) 100%)' }, { k: 'B', o: opts.b, c: C.optB, cl: C.optBLight, bg: 'linear-gradient(135deg, rgba(21,101,192,0.12) 0%, rgba(5,5,15,0.95) 100%)' }].map(({ k, o, c, cl, bg }) => (
-                      <div
-                        key={k}
-                        onClick={() => game?.phase === 'vote' && vote(k)}
-                        style={{
-                          padding: '1.2rem',
-                          borderRadius: '12px',
-                          border: `2px solid ${myVote === k ? cl : `${c}50`}`,
-                          background: myVote === k ? `${c}20` : bg,
-                          cursor: game?.phase === 'vote' && !myVote ? 'pointer' : 'default',
-                          opacity: myVote && myVote !== k ? 0.4 : 1,
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          position: 'relative',
-                          boxShadow: myVote === k ? `0 0 25px ${c}30` : 'none'
-                        }}
-                        onMouseOver={e => { if (game?.phase === 'vote' && !myVote) { e.currentTarget.style.borderColor = cl; e.currentTarget.style.transform = 'scale(1.02)'; } }}
-                        onMouseOut={e => { if (!myVote) { e.currentTarget.style.borderColor = `${c}50`; e.currentTarget.style.transform = 'scale(1)'; } }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' }}>
-                          <span style={{ ...S.title, fontWeight: 700, color: cl, fontSize: '1.05rem' }}>OPTION {k}</span>
-                          <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.6rem', background: `${c}40`, borderRadius: '5px', color: cl, fontWeight: 600 }}>{o?.tag}</span>
-                        </div>
-                        <p style={{ lineHeight: 1.6, fontSize: '0.88rem', color: C.textSoft }}>{o?.text}</p>
-                        {game?.phase === 'vote' && (
-                          <div style={{ marginTop: '1rem', textAlign: 'center', ...S.title, fontSize: '1.3rem', fontWeight: 700, color: C.goldBright }}>
-                            {Object.values(votes).filter(v => v === k).length} votes
-                          </div>
-                        )}
-                        {myVote === k && <div style={{ position: 'absolute', top: '0.7rem', right: '0.7rem', color: cl, fontSize: '1.2rem' }}>✓</div>}
+                <div style={{ ...S.card, padding: '0.8rem', flexShrink: 0 }}>
+                  <h4 style={{ ...S.title, textAlign: 'center', marginBottom: '0.8rem', color: C.goldMuted, fontSize: '0.8rem', letterSpacing: '0.1em' }}>⚔️ CHOOSE ⚔️</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                    {[{ k: 'A', o: opts.a, c: C.optA, cl: C.optALight }, { k: 'B', o: opts.b, c: C.optB, cl: C.optBLight }].map(({ k, o, c, cl }) => (
+                      <div key={k} onClick={() => game?.phase === 'vote' && vote(k)} style={{ padding: '1rem', borderRadius: '10px', border: `2px solid ${myVote === k ? cl : `${c}50`}`, background: myVote === k ? `${c}15` : `${c}08`, cursor: game?.phase === 'vote' && !myVote ? 'pointer' : 'default', opacity: myVote && myVote !== k ? 0.4 : 1, transition: 'all 0.3s', position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}><span style={{ ...S.title, fontWeight: 700, color: cl, fontSize: '0.95rem' }}>{k}</span><span style={{ fontSize: '0.65rem', padding: '0.15rem 0.5rem', background: `${c}30`, borderRadius: '4px', color: cl }}>{o?.tag}</span></div>
+                        <p style={{ lineHeight: 1.5, fontSize: '0.8rem', color: C.textSoft }}>{o?.text}</p>
+                        {game?.phase === 'vote' && <div style={{ marginTop: '0.7rem', textAlign: 'center', ...S.title, fontSize: '1.1rem', fontWeight: 700, color: C.goldBright }}>{Object.values(votes).filter(v => v === k).length} votes</div>}
+                        {myVote === k && <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', color: cl, fontSize: '1rem' }}>✓</div>}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-              
-              {/* End Screen */}
               {game?.phase === 'ended' && (
-                <div style={{ ...S.card, padding: '1.8rem', textAlign: 'center', background: `linear-gradient(135deg, ${C.gold}12 0%, ${C.bgCard} 100%)`, borderColor: C.gold, flexShrink: 0 }} className="border-glow">
-                  <h2 style={{ ...S.title, fontSize: '1.5rem', marginBottom: '1.2rem', color: C.gold }} className="glow-text">🏆 CHRONICLE COMPLETE 🏆</h2>
-                  <div style={{ maxWidth: '380px', margin: '0 auto 1.2rem' }}>
+                <div style={{ ...S.card, padding: '1.5rem', textAlign: 'center', background: `linear-gradient(135deg, ${C.gold}10, ${C.bgCard})`, borderColor: C.gold, flexShrink: 0 }}>
+                  <h2 style={{ ...S.title, fontSize: '1.3rem', marginBottom: '1rem', color: C.gold }}>🏆 COMPLETE 🏆</h2>
+                  <div style={{ maxWidth: '320px', margin: '0 auto 1rem' }}>
                     {Object.entries(game?.scores || {}).map(([id, sc]) => ({ p: players.find(x => x.id === id), t: (sc.influence || 0) + (sc.debates || 0) })).sort((a, b) => b.t - a.t).map((r, i) => (
-                      <div key={r.p?.id || i} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.8rem 1.2rem', marginBottom: '0.5rem', background: i === 0 ? `${C.gold}25` : C.bgGlass, borderRadius: '8px', border: i === 0 ? `1px solid ${C.gold}50` : 'none' }}>
-                        <span style={{ ...S.title, fontWeight: 800, color: i < 3 ? C.goldBright : C.textMuted, fontSize: '1.1rem' }}>{i + 1}</span>
-                        <span style={{ fontSize: '1.5rem' }}>{r.p?.avatar}</span>
-                        <span style={{ flex: 1, textAlign: 'left', fontWeight: 500 }}>{r.p?.name}</span>
-                        <span style={{ ...S.title, fontWeight: 700, color: C.goldBright, fontSize: '1.1rem' }}>{r.t}</span>
+                      <div key={r.p?.id || i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 1rem', marginBottom: '0.4rem', background: i === 0 ? `${C.gold}20` : C.bgGlass, borderRadius: '6px', border: i === 0 ? `1px solid ${C.gold}40` : 'none' }}>
+                        <span style={{ ...S.title, fontWeight: 700, color: i < 3 ? C.goldBright : C.textMuted }}>{i + 1}</span><span style={{ fontSize: '1.3rem' }}>{r.p?.avatar}</span><span style={{ flex: 1, textAlign: 'left' }}>{r.p?.name}</span><span style={{ ...S.title, fontWeight: 600, color: C.goldBright }}>{r.t}</span>
                       </div>
                     ))}
                   </div>
-                  <button onClick={reset} style={{ ...S.btn, ...S.goldBtn, padding: '0.9rem 2.5rem', borderRadius: '10px', fontSize: '1rem' }}>Return to Hall</button>
+                  <button onClick={exitGame} style={{ ...S.btn, ...S.goldBtn, padding: '0.8rem 2rem', borderRadius: '8px' }}>Exit & Close Room</button>
                 </div>
               )}
             </div>
-            
-            {/* Right Panel - Chat */}
-            <div style={{ width: '290px', display: 'flex', flexDirection: 'column', ...S.card, overflow: 'hidden' }}>
-              {/* Players */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', padding: '0.7rem', borderBottom: `1px solid ${C.borderLight}`, flexShrink: 0 }}>
-                {players.map(p => (
-                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.25rem 0.6rem', background: votes[p.id] ? `${C.success}25` : C.bgGlass, borderRadius: '15px', fontSize: '0.75rem', border: votes[p.id] ? `1px solid ${C.success}50` : `1px solid ${C.borderLight}` }}>
-                    <span>{p.avatar}</span>
-                    <span style={{ maxWidth: '50px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.textSoft }}>{p.name}</span>
-                    {votes[p.id] && <span style={{ color: C.success, fontWeight: 700 }}>{votes[p.id]}</span>}
-                  </div>
-                ))}
+            <div style={{ width: '260px', display: 'flex', flexDirection: 'column', ...S.card, overflow: 'hidden' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', padding: '0.5rem', borderBottom: `1px solid ${C.borderLight}`, flexShrink: 0 }}>
+                {players.map(p => <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.2rem 0.5rem', background: votes[p.id] ? `${C.success}20` : C.bgGlass, borderRadius: '12px', fontSize: '0.7rem', border: votes[p.id] ? `1px solid ${C.success}40` : `1px solid ${C.borderLight}` }}><span>{p.avatar}</span><span style={{ maxWidth: '40px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.textSoft }}>{p.name}</span>{votes[p.id] && <span style={{ color: C.success, fontWeight: 700 }}>{votes[p.id]}</span>}</div>)}
               </div>
-              
-              {/* Messages */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '0.7rem', minHeight: 0 }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem', minHeight: 0 }}>
                 {msgs.map((m, i) => (
-                  <div key={i} style={{ marginBottom: '0.6rem', fontSize: '0.82rem' }}>
-                    {m.type === 'system' ? (
-                      <div style={{ color: C.goldMuted, fontStyle: 'italic', padding: '0.3rem 0' }}>{m.text}</div>
-                    ) : (
-                      <div style={{ background: C.bgGlass, borderRadius: '10px', padding: '0.6rem 0.8rem', border: `1px solid ${C.borderLight}` }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                          <span style={{ color: C.goldLight, fontWeight: 600, fontSize: '0.78rem' }}>{m.sender?.avatar} {m.sender?.name}</span>
-                          {m.choice && <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem', background: m.choice === 'A' ? `${C.optA}40` : `${C.optB}40`, borderRadius: '4px', color: m.choice === 'A' ? C.optALight : C.optBLight, fontWeight: 600 }}>{m.choice}</span>}
-                        </div>
-                        <div style={{ color: C.textSoft, lineHeight: 1.5 }}>{m.text}</div>
+                  <div key={i} style={{ marginBottom: '0.4rem', fontSize: '0.75rem' }}>
+                    {m.type === 'system' ? <div style={{ color: C.goldMuted, fontStyle: 'italic', padding: '0.2rem 0' }}>{m.text}</div> : (
+                      <div style={{ background: C.bgGlass, borderRadius: '8px', padding: '0.5rem 0.6rem', border: `1px solid ${C.borderLight}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}><span style={{ color: C.goldLight, fontWeight: 600, fontSize: '0.7rem' }}>{m.sender?.avatar} {m.sender?.name}</span>{m.choice && <span style={{ fontSize: '0.6rem', padding: '0.1rem 0.3rem', background: m.choice === 'A' ? `${C.optA}30` : `${C.optB}30`, borderRadius: '3px', color: m.choice === 'A' ? C.optALight : C.optBLight }}>{m.choice}</span>}</div>
+                        <div style={{ color: C.textSoft, lineHeight: 1.4 }}>{m.text}</div>
                       </div>
                     )}
                   </div>
                 ))}
                 <div ref={msgsEndRef} />
               </div>
-              
-              {/* Input */}
               {game?.phase === 'debate' && (
-                <div style={{ padding: '0.7rem', borderTop: `1px solid ${C.borderLight}`, flexShrink: 0 }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <input
-                      type="text"
-                      value={input}
-                      onChange={e => setInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && submitDebate()}
-                      placeholder="Share your wisdom..."
-                      style={{ flex: 1, padding: '0.6rem 0.9rem', background: C.bgGlass, border: `1px solid ${C.borderLight}`, borderRadius: '8px', color: C.text, fontSize: '0.85rem', outline: 'none', fontFamily: "'Crimson Text', serif" }}
-                      onFocus={e => e.target.style.borderColor = C.goldMuted}
-                      onBlur={e => e.target.style.borderColor = C.borderLight}
-                    />
-                    <button onClick={submitDebate} style={{ ...S.btn, ...S.goldBtn, padding: '0.6rem 1rem', borderRadius: '8px', fontSize: '0.8rem' }}>Send</button>
+                <div style={{ padding: '0.5rem', borderTop: `1px solid ${C.borderLight}`, flexShrink: 0 }}>
+                  <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.3rem' }}>
+                    <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitDebate()} placeholder="Your opinion..." style={{ flex: 1, padding: '0.5rem 0.7rem', background: C.bgGlass, border: `1px solid ${C.borderLight}`, borderRadius: '6px', color: C.text, fontSize: '0.75rem', outline: 'none' }} />
+                    <button onClick={submitDebate} style={{ ...S.btn, ...S.goldBtn, padding: '0.5rem 0.8rem', borderRadius: '6px', fontSize: '0.7rem' }}>Send</button>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.4rem' }}>
-                    <button onClick={() => setInput('I advocate for Option A: ')} style={{ flex: 1, ...S.btn, padding: '0.35rem', background: `${C.optA}18`, border: `1px solid ${C.optA}40`, borderRadius: '6px', color: C.optALight, fontSize: '0.75rem' }}>For A</button>
-                    <button onClick={() => setInput('I advocate for Option B: ')} style={{ flex: 1, ...S.btn, padding: '0.35rem', background: `${C.optB}18`, border: `1px solid ${C.optB}40`, borderRadius: '6px', color: C.optBLight, fontSize: '0.75rem' }}>For B</button>
+                  <div style={{ display: 'flex', gap: '0.3rem' }}>
+                    <button onClick={() => setInput('I support A: ')} style={{ flex: 1, ...S.btn, padding: '0.25rem', background: `${C.optA}15`, border: `1px solid ${C.optA}30`, borderRadius: '5px', color: C.optALight, fontSize: '0.65rem' }}>For A</button>
+                    <button onClick={() => setInput('I support B: ')} style={{ flex: 1, ...S.btn, padding: '0.25rem', background: `${C.optB}15`, border: `1px solid ${C.optB}30`, borderRadius: '5px', color: C.optBLight, fontSize: '0.65rem' }}>For B</button>
                   </div>
                 </div>
               )}
-              
-              {game?.phase === 'vote' && !myVote && (
-                <div style={{ padding: '1rem', textAlign: 'center', background: `${C.gold}10`, flexShrink: 0 }}>
-                  <p style={{ ...S.title, color: C.gold, fontSize: '0.9rem' }}>⏳ Cast your vote on the left panel</p>
-                </div>
-              )}
+              {game?.phase === 'vote' && !myVote && <div style={{ padding: '0.8rem', textAlign: 'center', background: `${C.gold}10`, flexShrink: 0 }}><p style={{ ...S.title, color: C.gold, fontSize: '0.8rem' }}>⏳ Vote now</p></div>}
             </div>
           </div>
         </div>
