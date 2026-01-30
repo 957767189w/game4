@@ -291,19 +291,19 @@
       const createRoom = async (theme) => {
         if (!db || !player.name) { alert('Please enter your name first'); return; }
         
-        // Check if in active game
+        // Check if in active game - verify it actually exists and is active
         if (activeGameId) {
-          // Verify the game still exists and is active
-          const snap = await db.ref(`rooms/${activeGameId}`).once('value');
-          const roomVal = snap.val();
-          if (roomVal && (roomVal.status === 'waiting' || roomVal.status === 'playing')) {
-            alert('You are already in a game. Please return to continue or wait for it to end.');
-            return;
-          } else {
-            // Game no longer exists or ended, clear it
-            setActiveGameId(null);
-            localStorage.removeItem('cc_activegame');
-          }
+          try {
+            const snap = await db.ref(`rooms/${activeGameId}`).once('value');
+            const roomVal = snap.val();
+            if (roomVal && (roomVal.status === 'waiting' || roomVal.status === 'playing')) {
+              alert('You are already in a game. Please return to continue or wait for it to end.');
+              return;
+            }
+          } catch (e) { console.log('Room check failed', e); }
+          // Room doesn't exist or is closed/ended - clear it
+          setActiveGameId(null);
+          localStorage.removeItem('cc_activegame');
         }
         
         // Check 2-minute cooldown
@@ -498,9 +498,12 @@
         if (timerRef.current) clearInterval(timerRef.current);
         if (roomChkRef.current) clearInterval(roomChkRef.current);
         
-        // If game ended, close the room
+        // If game ended, close the room and reset cooldown
         if (game?.phase === 'ended' && db && roomId) {
           await db.ref(`rooms/${roomId}`).update({ status: 'closed' });
+          // Reset cooldown after completed game - player can create new room immediately
+          setLastRoomCreate(0);
+          localStorage.removeItem('cc_lastcreate');
         }
         
         // Clear active game
@@ -518,9 +521,21 @@
         setView('home');
       };
 
-      const reset = () => {
+      const reset = async () => {
         if (timerRef.current) clearInterval(timerRef.current);
         if (roomChkRef.current) clearInterval(roomChkRef.current);
+        
+        // If leaving a waiting room, close it and reset cooldown
+        if (db && roomId && roomData?.status === 'waiting' && player.id === roomData?.host) {
+          await db.ref(`rooms/${roomId}`).update({ status: 'closed' });
+          // Reset cooldown when host closes their waiting room
+          setLastRoomCreate(0);
+          localStorage.removeItem('cc_lastcreate');
+        }
+        
+        // Clear active game when leaving
+        setActiveGameId(null);
+        localStorage.removeItem('cc_activegame');
         setRoomId(null);
         setRoomData(null);
         setGame(null);
@@ -584,7 +599,7 @@
                   <p style={{ marginTop: '0.5rem', color: C.textMuted, fontSize: '0.8rem' }}>Press Enter</p>
                 </div>
               ) : (<>
-                <div className="shimmer-bg" style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '0.8rem', background: C.bgGlass, borderRadius: '8px', border: `1px solid ${C.borderLight}` }}><p style={{ color: C.goldMuted, fontSize: '0.85rem' }}>⛓️ GenLayer Transaction Required</p></div>
+                <div className="shimmer-bg" style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '0.8rem', background: C.bgGlass, borderRadius: '8px', border: `1px solid ${C.borderLight}` }}><p style={{ color: C.goldMuted, fontSize: '0.85rem' }}>⛓️ GenLayer Transaction Required </p></div>
                 
                 {activeGameId && (
                   <div style={{ ...S.card, marginBottom: '2rem', padding: '1.2rem', background: `linear-gradient(135deg, rgba(139,195,74,0.1), ${C.bgCard})`, borderColor: C.success }}>
