@@ -20,6 +20,8 @@
     @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
     @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
     @keyframes glow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(212,175,55,0.4)); } 50% { filter: drop-shadow(0 0 12px rgba(212,175,55,0.7)); } }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
     .shimmer-bg { background: linear-gradient(90deg, transparent, rgba(212,175,55,0.08), transparent); background-size: 200% 100%; animation: shimmer 3s infinite; }
     .float-anim { animation: float 4s ease-in-out infinite; }
     .glow-icon { animation: glow 2s ease-in-out infinite; }
@@ -82,6 +84,29 @@
       ghostBtn: { background: 'transparent', border: `1px solid ${C.border}`, color: C.goldMuted }
     };
 
+    // Custom Modal Component
+    const Modal = ({ show, title, message, onClose, onConfirm, type = 'info' }) => {
+      if (!show) return null;
+      const icons = { info: '📜', warning: '⚠️', error: '❌', success: '✨', confirm: '❓' };
+      return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem', backdropFilter: 'blur(5px)' }}>
+          <div style={{ ...S.card, padding: '2rem', maxWidth: '420px', width: '100%', textAlign: 'center', animation: 'fadeIn 0.3s ease-out' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{icons[onConfirm ? 'confirm' : type]}</div>
+            <h3 style={{ ...S.title, color: C.gold, fontSize: '1.2rem', marginBottom: '1rem' }}>{title}</h3>
+            <p style={{ color: C.textSoft, lineHeight: 1.7, marginBottom: '1.5rem', fontSize: '0.95rem' }}>{message}</p>
+            {onConfirm ? (
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                <button onClick={onClose} style={{ ...S.btn, ...S.ghostBtn, padding: '0.8rem 2rem', borderRadius: '8px', fontSize: '0.95rem' }}>Cancel</button>
+                <button onClick={onConfirm} style={{ ...S.btn, ...S.goldBtn, padding: '0.8rem 2rem', borderRadius: '8px', fontSize: '0.95rem' }}>Confirm</button>
+              </div>
+            ) : (
+              <button onClick={onClose} style={{ ...S.btn, ...S.goldBtn, padding: '0.8rem 2.5rem', borderRadius: '8px', fontSize: '0.95rem' }}>Understood</button>
+            )}
+          </div>
+        </div>
+      );
+    };
+
     function App() {
       const [db, setDb] = useState(null);
       const [wallet, setWallet] = useState(null);
@@ -105,6 +130,7 @@
       const [hist, setHist] = useState([]);
       const [loading, setLoading] = useState(false);
       const [processingPhase, setProcessingPhase] = useState(false);
+      const [modal, setModal] = useState({ show: false, title: '', message: '', type: 'info', onConfirm: null });
       const timerRef = useRef(null);
       const msgsEndRef = useRef(null);
       const roomChkRef = useRef(null);
@@ -190,8 +216,8 @@
             if ((d.status === 'closed' || d.status === 'expired') && game?.phase !== 'ended') {
               setActiveGameId(null);
               localStorage.removeItem('cc_activegame');
-              alert('Room is no longer available');
-              reset();
+              showModal('📜 Room Closed', 'This chronicle room is no longer available.');
+              resetSync();
             }
             if (d.status === 'playing' && view !== 'game') {
               setView('game');
@@ -241,7 +267,7 @@
       useEffect(() => { msgsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
 
       const connectWallet = async () => {
-        if (!window.ethereum) { alert('Please install MetaMask'); return null; }
+        if (!window.ethereum) { showModal('🦊 MetaMask Required', 'Please install MetaMask browser extension to connect your wallet and play.'); return null; }
         setConnecting(true);
         try {
           const accs = await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -260,7 +286,7 @@
             }
           }
           return addr;
-        } catch { alert('Connection failed'); return null; }
+        } catch { showModal('❌ Connection Failed', 'Failed to connect wallet. Please try again or check MetaMask.'); return null; }
         finally { setConnecting(false); }
       };
 
@@ -271,6 +297,18 @@
         localStorage.removeItem('cc_wallet');
         localStorage.removeItem('cc_player');
         localStorage.removeItem('cc_activegame');
+      };
+
+      const showModal = (title, message, typeOrCallback = 'info') => {
+        if (typeof typeOrCallback === 'function') {
+          setModal({ show: true, title, message, type: 'confirm', onConfirm: typeOrCallback });
+        } else {
+          setModal({ show: true, title, message, type: typeOrCallback, onConfirm: null });
+        }
+      };
+
+      const closeModal = () => {
+        setModal({ show: false, title: '', message: '', type: 'info', onConfirm: null });
       };
 
       const payFee = async (addr) => {
@@ -289,7 +327,7 @@
       };
 
       const createRoom = async (theme) => {
-        if (!db || !player.name) { alert('Please enter your name first'); return; }
+        if (!db || !player.name) { showModal('⚠️ Notice', 'Please enter your name first to begin your chronicle.'); return; }
         
         // Check if in active game - verify it actually exists and is active
         if (activeGameId) {
@@ -297,7 +335,7 @@
             const snap = await db.ref(`rooms/${activeGameId}`).once('value');
             const roomVal = snap.val();
             if (roomVal && (roomVal.status === 'waiting' || roomVal.status === 'playing')) {
-              alert('You are already in a game. Please return to continue or wait for it to end.');
+              showModal('🎮 Active Game', 'You are already in a game. Please return to continue or wait for it to end.');
               return;
             }
           } catch (e) { console.log('Room check failed', e); }
@@ -311,7 +349,7 @@
         const timeSince = now - lastRoomCreate;
         if (lastRoomCreate > 0 && timeSince < CONFIG.ROOM_CREATE_COOLDOWN) {
           const remaining = Math.ceil((CONFIG.ROOM_CREATE_COOLDOWN - timeSince) / 1000);
-          alert(`You have already created a room. Please wait ${remaining} seconds before creating another.`);
+          showModal('⏳ Cooldown Active', `Your current room is not closed. Please wait ${remaining} seconds before creating another room.`);
           return;
         }
         
@@ -340,14 +378,14 @@
       };
 
       const joinRoom = async (rid) => {
-        if (!db || !player.name) { alert('Please enter your name first'); return; }
+        if (!db || !player.name) { showModal('⚠️ Notice', 'Please enter your name first to join a chronicle.'); return; }
         
         // Check if in active game
         if (activeGameId && activeGameId !== rid) {
           const snap = await db.ref(`rooms/${activeGameId}`).once('value');
           const roomVal = snap.val();
           if (roomVal && (roomVal.status === 'waiting' || roomVal.status === 'playing')) {
-            alert('You are already in a game. Please return to continue or wait for it to end.');
+            showModal('🎮 Active Game', 'You are already in a game. Please return to continue or wait for it to end.');
             return;
           } else {
             setActiveGameId(null);
@@ -379,7 +417,7 @@
         } else {
           setActiveGameId(null);
           localStorage.removeItem('cc_activegame');
-          alert('Game is no longer available');
+          showModal('📜 Room Closed', 'This chronicle is no longer available. It may have ended or been closed.');
         }
       };
 
@@ -429,18 +467,46 @@
         const cv = vs.val() || {};
         const cnt = { A: 0, B: 0 };
         Object.values(cv).forEach(v => { if (v === 'A') cnt.A++; else if (v === 'B') cnt.B++; });
-        const winner = cnt.A >= cnt.B ? 'A' : 'B';
+        
         const round = game.round;
         const theme = roomData?.theme || 'fantasy';
         const arc = THEMES[theme];
         const rd = arc.rounds[round - 1];
-        const winOpt = winner === 'A' ? rd?.a : rd?.b;
+        
+        // Read current scores
         const ss = await db.ref(`games/${roomId}/scores`).once('value');
         const newScores = ss.val() || {};
-        Object.entries(cv).forEach(([id, v]) => { if (v === winner && newScores[id]) { newScores[id].influence = (newScores[id].influence || 0) + 30; newScores[id].wins = (newScores[id].wins || 0) + 1; } });
+        
+        // Check for tie
+        const isTie = cnt.A === cnt.B;
+        let winner = null;
+        let winOpt = null;
+        let resultText = '';
+        
+        if (isTie) {
+          // Tie - no winner, no score added, randomly pick path direction
+          winner = Math.random() > 0.5 ? 'A' : 'B';
+          winOpt = winner === 'A' ? rd?.a : rd?.b;
+          resultText = `Tie vote (${cnt.A} vs ${cnt.B})! No consensus reached. Fate decides the path...`;
+          addMsg('system', `⚖️ Tie! No winner this round.`);
+        } else {
+          // Clear winner - add score to winners
+          winner = cnt.A > cnt.B ? 'A' : 'B';
+          winOpt = winner === 'A' ? rd?.a : rd?.b;
+          resultText = `Council chose Option ${winner} (${cnt[winner]} vs ${cnt[winner === 'A' ? 'B' : 'A']})`;
+          
+          // Only add score when there's a clear winner
+          Object.entries(cv).forEach(([id, v]) => {
+            if (v === winner && newScores[id]) {
+              newScores[id].influence = (newScores[id].influence || 0) + 30;
+              newScores[id].wins = (newScores[id].wins || 0) + 1;
+            }
+          });
+          addMsg('system', `⚖️ Option ${winner} wins!`);
+        }
+        
         const newPath = [...(game.path || []), winner];
-        const newStory = [...(game.story || []), { text: `Council chose ${winner} (${cnt[winner]} vs ${cnt[winner === 'A' ? 'B' : 'A']})`, type: 'choice', round, winner }, { text: winOpt?.text, type: 'consequence', round }];
-        addMsg('system', `⚖️ Option ${winner} wins!`);
+        const newStory = [...(game.story || []), { text: resultText, type: 'choice', round, winner, isTie }, { text: winOpt?.text, type: 'consequence', round }];
 
         if (round >= CONFIG.TOTAL_ROUNDS) {
           const ending = arc.endings.default;
@@ -527,7 +593,9 @@
         
         // If leaving a waiting room, close it and reset cooldown
         if (db && roomId && roomData?.status === 'waiting' && player.id === roomData?.host) {
-          await db.ref(`rooms/${roomId}`).update({ status: 'closed' });
+          try {
+            await db.ref(`rooms/${roomId}`).update({ status: 'closed' });
+          } catch (e) { console.log('Failed to close room', e); }
           // Reset cooldown when host closes their waiting room
           setLastRoomCreate(0);
           localStorage.removeItem('cc_lastcreate');
@@ -546,10 +614,30 @@
         setProcessingPhase(false);
         setView('home');
       };
+      
+      const resetSync = () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        if (roomChkRef.current) clearInterval(roomChkRef.current);
+        setActiveGameId(null);
+        localStorage.removeItem('cc_activegame');
+        setRoomId(null);
+        setRoomData(null);
+        setGame(null);
+        setPlayers([]);
+        setMsgs([]);
+        setMyVote(null);
+        lastRoundRef.current = 0;
+        setProcessingPhase(false);
+        setView('home');
+      };
 
       const clearHistory = async () => {
         if (!db || !wallet) return;
-        if (confirm('Clear all history?')) { await db.ref(`userHistory/${wallet}`).remove(); setHist([]); }
+        showModal('🗑️ Clear History', 'Clear all your chronicle history? This action cannot be undone.', async () => {
+          await db.ref(`userHistory/${wallet}`).remove();
+          setHist([]);
+          closeModal();
+        });
       };
 
       const fmtTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
@@ -558,6 +646,22 @@
       const opts = getOpts();
       const votes = game?.votes || {};
       const themeData = roomData?.theme ? THEMES[roomData.theme] : null;
+
+      // Custom Modal Component
+      const Modal = () => modal.show && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001, padding: '1rem', backdropFilter: 'blur(5px)' }}>
+          <div style={{ ...S.card, padding: '2rem', maxWidth: '420px', width: '100%', textAlign: 'center', animation: 'fadeIn 0.3s ease' }}>
+            <h2 style={{ ...S.title, color: C.gold, marginBottom: '1rem', fontSize: '1.2rem' }}>{modal.title}</h2>
+            <p style={{ color: C.textSoft, lineHeight: 1.7, marginBottom: '1.5rem', fontSize: '0.95rem' }}>{modal.message}</p>
+            <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'center' }}>
+              {modal.onConfirm && (
+                <button onClick={modal.onConfirm} style={{ ...S.btn, ...S.goldBtn, padding: '0.7rem 1.5rem', borderRadius: '8px', fontSize: '0.9rem' }}>Confirm</button>
+              )}
+              <button onClick={closeModal} style={{ ...S.btn, ...S.ghostBtn, padding: '0.7rem 1.5rem', borderRadius: '8px', fontSize: '0.9rem' }}>{modal.onConfirm ? 'Cancel' : 'OK'}</button>
+            </div>
+          </div>
+        </div>
+      );
 
       const RulesModal = () => showRules && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
@@ -577,6 +681,7 @@
       // HOME VIEW
       if (view === 'home') return (
         <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at top, rgba(30,25,15,0.3), ${C.bg})` }}>
+          <Modal show={modal.show} title={modal.title} message={modal.message} type={modal.type} onClose={closeModal} onConfirm={modal.onConfirm} />
           <RulesModal />
           <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: `1px solid ${C.borderLight}`, background: 'rgba(5,5,7,0.8)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}><span style={{ fontSize: '1.8rem' }} className="glow-icon">📜</span><div><h1 style={{ ...S.title, color: C.gold, fontSize: '1.2rem' }}>CONSENSUS CHRONICLE</h1><p style={{ color: C.textMuted, fontSize: '0.65rem', letterSpacing: '0.2em' }}>SHAPE HISTORY TOGETHER</p></div></div>
@@ -672,6 +777,7 @@
         const age = roomData ? Math.floor((Date.now() - roomData.createdAt) / 1000) : 0;
         return (
           <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at center, rgba(30,25,15,0.2), ${C.bg})` }}>
+            <Modal show={modal.show} title={modal.title} message={modal.message} type={modal.type} onClose={closeModal} onConfirm={modal.onConfirm} />
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: `1px solid ${C.borderLight}`, background: 'rgba(5,5,7,0.8)' }}>
               <button onClick={reset} style={{ ...S.btn, ...S.ghostBtn, padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem' }}>← Back</button>
               <div><span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{themeData?.icon}</span><span style={{ ...S.title, color: C.gold }}>{themeData?.name}</span></div>
@@ -708,6 +814,7 @@
       // GAME VIEW
       return (
         <div style={{ height: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Modal show={modal.show} title={modal.title} message={modal.message} type={modal.type} onClose={closeModal} onConfirm={modal.onConfirm} />
           <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem 1.5rem', background: 'rgba(5,5,7,0.9)', borderBottom: `1px solid ${C.borderLight}`, height: '55px', flexShrink: 0 }}>
             <button onClick={exitGame} style={{ ...S.btn, ...S.ghostBtn, padding: '0.4rem 0.8rem', borderRadius: '5px', fontSize: '0.75rem' }}>← Exit</button>
             <div style={{ textAlign: 'center' }}><div style={{ fontSize: '0.65rem', color: C.textMuted, letterSpacing: '0.1em' }}>ROUND {game?.round || 1}/{CONFIG.TOTAL_ROUNDS}</div><div style={{ ...S.title, fontSize: '0.85rem', color: game?.phase === 'debate' ? C.goldLight : game?.phase === 'vote' ? C.success : C.gold }}>{game?.phase === 'debate' && '💬 DEBATE'}{game?.phase === 'vote' && '🗳️ VOTE'}{game?.phase === 'ended' && '📜 COMPLETE'}</div></div>
@@ -722,7 +829,7 @@
                   <div key={i} style={{ marginBottom: '0.8rem' }}>
                     {s.type === 'opening' && <p style={{ color: C.goldLight, fontStyle: 'italic', lineHeight: 1.7, fontSize: '0.9rem' }}>{s.text}</p>}
                     {s.type === 'context' && <div style={{ borderLeft: `3px solid ${C.gold}`, paddingLeft: '1rem', marginTop: '1rem' }}><span style={{ ...S.title, display: 'inline-block', background: `${C.gold}20`, padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.65rem', color: C.gold, marginBottom: '0.4rem' }}>R{s.round}</span><p style={{ color: C.textSoft, lineHeight: 1.6, fontSize: '0.85rem' }}>{s.text}</p></div>}
-                    {s.type === 'choice' && <p style={{ color: C.success, lineHeight: 1.5, fontSize: '0.85rem', fontWeight: 600 }}>⚖️ {s.text}</p>}
+                    {s.type === 'choice' && <p style={{ color: s.isTie ? C.goldMuted : C.success, lineHeight: 1.5, fontSize: '0.85rem', fontWeight: 600 }}>{s.isTie ? '⚖️' : '⚔️'} {s.text}</p>}
                     {s.type === 'consequence' && <p style={{ color: C.textSoft, lineHeight: 1.6, fontSize: '0.85rem', paddingLeft: '1rem', borderLeft: `2px solid ${C.borderLight}`, fontStyle: 'italic' }}>"{s.text}"</p>}
                     {s.type === 'ending' && <div style={{ marginTop: '1rem', padding: '1rem', background: `linear-gradient(135deg, ${C.gold}10, transparent)`, borderRadius: '10px', border: `1px solid ${C.border}` }}><p style={{ ...S.title, color: C.gold, lineHeight: 1.7, fontSize: '0.9rem' }}>📜 {s.text}</p></div>}
                   </div>
@@ -759,7 +866,18 @@
             </div>
             <div style={{ width: '260px', display: 'flex', flexDirection: 'column', ...S.card, overflow: 'hidden' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', padding: '0.5rem', borderBottom: `1px solid ${C.borderLight}`, flexShrink: 0 }}>
-                {players.map(p => <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.2rem 0.5rem', background: votes[p.id] ? `${C.success}20` : C.bgGlass, borderRadius: '12px', fontSize: '0.7rem', border: votes[p.id] ? `1px solid ${C.success}40` : `1px solid ${C.borderLight}` }}><span>{p.avatar}</span><span style={{ maxWidth: '40px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.textSoft }}>{p.name}</span>{votes[p.id] && <span style={{ color: C.success, fontWeight: 700 }}>{votes[p.id]}</span>}</div>)}
+                {players.map(p => {
+                  const pVote = votes[p.id];
+                  const voteColor = pVote === 'A' ? C.optA : pVote === 'B' ? C.optB : null;
+                  const voteLightColor = pVote === 'A' ? C.optALight : pVote === 'B' ? C.optBLight : null;
+                  return (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.2rem 0.5rem', background: pVote ? `${voteColor}20` : C.bgGlass, borderRadius: '12px', fontSize: '0.7rem', border: pVote ? `1px solid ${voteColor}50` : `1px solid ${C.borderLight}` }}>
+                      <span>{p.avatar}</span>
+                      <span style={{ maxWidth: '40px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.textSoft }}>{p.name}</span>
+                      {pVote && <span style={{ color: voteLightColor, fontWeight: 700, marginLeft: '0.2rem' }}>{pVote}</span>}
+                    </div>
+                  );
+                })}
               </div>
               <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem', minHeight: 0 }}>
                 {msgs.map((m, i) => (
