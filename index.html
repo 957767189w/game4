@@ -117,7 +117,6 @@
       const [player, setPlayer] = useState({ id: '', name: '', avatar: '🎭', exp: 0 });
       const [roomId, setRoomId] = useState(null);
       const [activeGameId, setActiveGameId] = useState(null);
-      const [lastRoomCreate, setLastRoomCreate] = useState(0);
       const [roomData, setRoomData] = useState(null);
       const [players, setPlayers] = useState([]);
       const [game, setGame] = useState(null);
@@ -151,10 +150,8 @@
         const sw = localStorage.getItem('cc_wallet');
         const sp = localStorage.getItem('cc_player');
         const sg = localStorage.getItem('cc_activegame');
-        const lrc = localStorage.getItem('cc_lastcreate');
         if (sw && sp) { try { setWallet(sw); setPlayer(JSON.parse(sp)); } catch {} }
         if (sg) setActiveGameId(sg);
-        if (lrc) setLastRoomCreate(parseInt(lrc) || 0);
         if (window.ethereum && sw) { window.ethereum.request({ method: 'eth_accounts' }).then(a => { if (a[0]?.toLowerCase() === sw.toLowerCase()) setWallet(a[0]); }); }
         return () => { if (timerRef.current) clearInterval(timerRef.current); if (roomChkRef.current) clearInterval(roomChkRef.current); };
       }, []);
@@ -329,25 +326,17 @@
       const createRoom = async (theme) => {
         if (!db || !player.name) { showModal('⚠️ Notice', 'Please enter your name first to begin your chronicle.'); return; }
         
-        // Check 2-minute cooldown FIRST - before any transaction
-        const now = Date.now();
-        const timeSince = now - lastRoomCreate;
-        if (lastRoomCreate > 0 && timeSince < CONFIG.ROOM_CREATE_COOLDOWN) {
-          showModal('⏳ Cooldown', 'You can only create one room every 2 minutes. Please try again later.');
-          return;
-        }
-        
-        // Check if in active game - verify it actually exists and is active
+        // Check if player has an active room (not closed/ended)
         if (activeGameId) {
           try {
             const snap = await db.ref(`rooms/${activeGameId}`).once('value');
             const roomVal = snap.val();
             if (roomVal && (roomVal.status === 'waiting' || roomVal.status === 'playing')) {
-              showModal('🎮 Active Game', 'You are already in a game. Please return to continue or wait for it to end.');
+              showModal('🎮 Active Game', 'You are still in a game. Please try again later.');
               return;
             }
           } catch (e) { console.log('Room check failed', e); }
-          // Room doesn't exist or is closed/ended - clear it
+          // Room doesn't exist or is closed - clear it
           setActiveGameId(null);
           localStorage.removeItem('cc_activegame');
         }
@@ -355,10 +344,11 @@
         let addr = wallet;
         if (!addr) { addr = await connectWallet(); if (!addr) return; }
         
-        // GenLayer transaction - only after cooldown check passes
+        // GenLayer transaction
         const paid = await payFee(addr);
         if (!paid) return;
         
+        const now = Date.now();
         const rid = `room_${now}`;
         await db.ref(`rooms/${rid}`).set({
           theme,
@@ -370,9 +360,7 @@
         
         setRoomId(rid);
         setActiveGameId(rid);
-        setLastRoomCreate(now);
         localStorage.setItem('cc_activegame', rid);
-        localStorage.setItem('cc_lastcreate', now.toString());
         setView('room');
       };
 
@@ -558,22 +546,19 @@
         addMsg('system', `${player.name} voted`);
       };
 
-      // Exit game and close room if game ended
+      // Exit from game view - different behavior based on game state
       const exitGame = async () => {
         if (timerRef.current) clearInterval(timerRef.current);
         if (roomChkRef.current) clearInterval(roomChkRef.current);
         
-        // If game ended, close the room and reset cooldown
+        // Case C: Game ended - close room and clear everything
         if (game?.phase === 'ended' && db && roomId) {
           await db.ref(`rooms/${roomId}`).update({ status: 'closed' });
-          // Reset cooldown after completed game - player can create new room immediately
-          setLastRoomCreate(0);
-          localStorage.removeItem('cc_lastcreate');
+          setActiveGameId(null);
+          localStorage.removeItem('cc_activegame');
         }
-        
-        // Clear active game
-        setActiveGameId(null);
-        localStorage.removeItem('cc_activegame');
+        // Case B: Game still playing - DON'T close room, keep activeGameId so player can rejoin
+        // activeGameId stays set, room stays open
         
         setRoomId(null);
         setRoomData(null);
@@ -586,23 +571,21 @@
         setView('home');
       };
 
+      // Exit from room view (waiting status) - Case A: close room immediately
       const reset = async () => {
         if (timerRef.current) clearInterval(timerRef.current);
         if (roomChkRef.current) clearInterval(roomChkRef.current);
         
-        // If leaving a waiting room, close it and reset cooldown
-        if (db && roomId && roomData?.status === 'waiting' && player.id === roomData?.host) {
+        // Case A: Room not started (waiting) - close room immediately
+        if (db && roomId && roomData?.status === 'waiting') {
           try {
             await db.ref(`rooms/${roomId}`).update({ status: 'closed' });
           } catch (e) { console.log('Failed to close room', e); }
-          // Reset cooldown when host closes their waiting room
-          setLastRoomCreate(0);
-          localStorage.removeItem('cc_lastcreate');
+          // Clear activeGameId since room is closed
+          setActiveGameId(null);
+          localStorage.removeItem('cc_activegame');
         }
         
-        // Clear active game when leaving
-        setActiveGameId(null);
-        localStorage.removeItem('cc_activegame');
         setRoomId(null);
         setRoomData(null);
         setGame(null);
@@ -617,8 +600,6 @@
       const resetSync = () => {
         if (timerRef.current) clearInterval(timerRef.current);
         if (roomChkRef.current) clearInterval(roomChkRef.current);
-        setActiveGameId(null);
-        localStorage.removeItem('cc_activegame');
         setRoomId(null);
         setRoomData(null);
         setGame(null);
@@ -815,7 +796,7 @@
         <div style={{ height: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Modal show={modal.show} title={modal.title} message={modal.message} type={modal.type} onClose={closeModal} onConfirm={modal.onConfirm} />
           <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem 1.5rem', background: 'rgba(5,5,7,0.9)', borderBottom: `1px solid ${C.borderLight}`, height: '55px', flexShrink: 0 }}>
-            <button onClick={exitGame} style={{ ...S.btn, ...S.ghostBtn, padding: '0.4rem 0.8rem', borderRadius: '5px', fontSize: '0.75rem' }}>← Exit</button>
+            <button onClick={exitGame} style={{ ...S.btn, ...S.ghostBtn, padding: '0.4rem 0.8rem', borderRadius: '5px', fontSize: '0.75rem' }}>{game?.phase === 'ended' ? '← Exit' : '← Leave'}</button>
             <div style={{ textAlign: 'center' }}><div style={{ fontSize: '0.65rem', color: C.textMuted, letterSpacing: '0.1em' }}>ROUND {game?.round || 1}/{CONFIG.TOTAL_ROUNDS}</div><div style={{ ...S.title, fontSize: '0.85rem', color: game?.phase === 'debate' ? C.goldLight : game?.phase === 'vote' ? C.success : C.gold }}>{game?.phase === 'debate' && '💬 DEBATE'}{game?.phase === 'vote' && '🗳️ VOTE'}{game?.phase === 'ended' && '📜 COMPLETE'}</div></div>
             <div style={{ ...S.title, fontSize: '1.8rem', fontWeight: 700, color: timer <= 10 && game?.phase !== 'ended' ? C.error : C.gold }}>{game?.phase === 'ended' ? '—' : fmtTime(timer)}</div>
             <div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.6rem', color: C.textMuted, letterSpacing: '0.1em' }}>SCORE</div><div style={{ ...S.title, fontSize: '1.2rem', fontWeight: 700, color: C.goldBright }}>{(game?.scores?.[player.id]?.influence || 0) + (game?.scores?.[player.id]?.debates || 0)}</div></div>
