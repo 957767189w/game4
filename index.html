@@ -328,21 +328,7 @@
 
       const createRoom = async (theme) => {
         if (!db || !player.name) { showModal('⚠️ Notice', 'Please enter your name first to begin your chronicle.'); return; }
-        
-        // Check if player has an active room (not closed/ended)
-        if (activeGameId) {
-          try {
-            const snap = await db.ref(`rooms/${activeGameId}`).once('value');
-            const roomVal = snap.val();
-            if (roomVal && (roomVal.status === 'waiting' || roomVal.status === 'playing')) {
-              showModal('🎮 Active Game', 'You are still in a game. Please try again later.');
-              return;
-            }
-          } catch (e) { console.log('Room check failed', e); }
-          // Room doesn't exist or is closed - clear it
-          setActiveGameId(null);
-          localStorage.removeItem('cc_activegame');
-        }
+        if (loading) return;
         
         let addr = wallet;
         if (!addr) { addr = await connectWallet(); if (!addr) return; }
@@ -369,19 +355,7 @@
 
       const joinRoom = async (rid) => {
         if (!db || !player.name) { showModal('⚠️ Notice', 'Please enter your name first to join a chronicle.'); return; }
-        
-        // Check if in active game
-        if (activeGameId && activeGameId !== rid) {
-          const snap = await db.ref(`rooms/${activeGameId}`).once('value');
-          const roomVal = snap.val();
-          if (roomVal && (roomVal.status === 'waiting' || roomVal.status === 'playing')) {
-            showModal('🎮 Active Game', 'You are already in a game. Please return to continue or wait for it to end.');
-            return;
-          } else {
-            setActiveGameId(null);
-            localStorage.removeItem('cc_activegame');
-          }
-        }
+        if (loading) return;
         
         let addr = wallet;
         if (!addr) { addr = await connectWallet(); if (!addr) return; }
@@ -577,8 +551,10 @@
         setPlayers([]);
         setMsgs([]);
         setMyVote(null);
+        setLoading(false);
         lastRoundRef.current = 0;
         processingRef.current = false;
+        roomClosedShownRef.current = false;
         setView('home');
       };
 
@@ -604,8 +580,10 @@
         setPlayers([]);
         setMsgs([]);
         setMyVote(null);
+        setLoading(false);
         lastRoundRef.current = 0;
         processingRef.current = false;
+        roomClosedShownRef.current = false;
         setView('home');
       };
       
@@ -620,6 +598,7 @@
         setPlayers([]);
         setMsgs([]);
         setMyVote(null);
+        setLoading(false);
         lastRoundRef.current = 0;
         processingRef.current = false;
         roomClosedShownRef.current = false;
