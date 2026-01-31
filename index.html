@@ -134,9 +134,11 @@
       const roomChkRef = useRef(null);
       const lastRoundRef = useRef(0);
       const scoredRoundRef = useRef(0);
+      const debatedRoundRef = useRef(0);
       const processingRef = useRef(false);
       const roomClosedShownRef = useRef(false);
       const gameRef = useRef(null);
+      const modalShownRef = useRef(false);
       
       // Full state reset function
       const fullReset = () => {
@@ -154,8 +156,10 @@
         setLoading(false);
         lastRoundRef.current = 0;
         scoredRoundRef.current = 0;
+        debatedRoundRef.current = 0;
         processingRef.current = false;
         roomClosedShownRef.current = false;
+        modalShownRef.current = false;
         setView('home');
       };
 
@@ -354,6 +358,7 @@
       };
 
       const closeModal = () => {
+        modalShownRef.current = false;
         setModal({ show: false, title: '', message: '', type: 'info', onConfirm: null });
       };
 
@@ -443,6 +448,7 @@
         // Reset all refs for new game
         lastRoundRef.current = 0;
         scoredRoundRef.current = 0;
+        debatedRoundRef.current = 0;
         processingRef.current = false;
         
         await db.ref(`rooms/${roomId}`).update({ status: 'playing' });
@@ -578,8 +584,14 @@
         const c = input.toUpperCase().includes('A') ? 'A' : input.toUpperCase().includes('B') ? 'B' : null;
         await addMsg('chat', input, { id: player.id, name: player.name, avatar: player.avatar }, c);
         setInput('');
-        const cd = game?.scores?.[player.id]?.debates || 0;
-        await db.ref(`games/${roomId}/scores/${player.id}/debates`).set(cd + 10);
+        
+        // Only add debate points ONCE per round
+        const currentRound = game?.round || 0;
+        if (debatedRoundRef.current < currentRound) {
+          debatedRoundRef.current = currentRound;
+          const cd = game?.scores?.[player.id]?.debates || 0;
+          await db.ref(`games/${roomId}/scores/${player.id}/debates`).set(cd + 10);
+        }
       };
 
       const vote = async (c) => {
@@ -595,14 +607,20 @@
           // Game ended - exit directly
           doExitGame();
         } else {
-          // Game in progress - confirm first
-          showModal('⚠️ Leave Game?', 'Are you sure you want to leave? The game will continue without you.', doExitGame);
+          // Game in progress - confirm first (prevent double modal)
+          if (modalShownRef.current) return;
+          modalShownRef.current = true;
+          showModal('⚠️ Leave Game?', 'Are you sure you want to leave? The game will continue without you.', () => {
+            modalShownRef.current = false;
+            doExitGame();
+          });
         }
       };
 
       // Actually exit from game view
       const doExitGame = async () => {
         closeModal();
+        modalShownRef.current = false;
         // Case C: Game ended - close room
         if (game?.phase === 'ended' && db && roomId) {
           try { await db.ref(`rooms/${roomId}`).update({ status: 'closed' }); } catch {}
@@ -613,12 +631,18 @@
 
       // Confirm exit from room - show modal first
       const confirmReset = () => {
-        showModal('⚠️ Leave Room?', 'Are you sure you want to leave? The room will be closed.', doReset);
+        if (modalShownRef.current) return;
+        modalShownRef.current = true;
+        showModal('⚠️ Leave Room?', 'Are you sure you want to leave? The room will be closed.', () => {
+          modalShownRef.current = false;
+          doReset();
+        });
       };
 
       // Actually exit from room view (waiting status) - Case A: close room immediately
       const doReset = async () => {
         closeModal();
+        modalShownRef.current = false;
         // Case A: Room not started (waiting) - close room immediately
         if (db && roomId && roomData?.status === 'waiting') {
           try { await db.ref(`rooms/${roomId}`).update({ status: 'closed' }); } catch {}
@@ -646,21 +670,7 @@
       const votes = game?.votes || {};
       const themeData = roomData?.theme ? THEMES[roomData.theme] : null;
 
-      // Custom Modal Component
-      const Modal = () => modal.show && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001, padding: '1rem', backdropFilter: 'blur(5px)' }}>
-          <div style={{ ...S.card, padding: '2rem', maxWidth: '420px', width: '100%', textAlign: 'center', animation: 'fadeIn 0.3s ease' }}>
-            <h2 style={{ ...S.title, color: C.gold, marginBottom: '1rem', fontSize: '1.2rem' }}>{modal.title}</h2>
-            <p style={{ color: C.textSoft, lineHeight: 1.7, marginBottom: '1.5rem', fontSize: '0.95rem' }}>{modal.message}</p>
-            <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'center' }}>
-              {modal.onConfirm && (
-                <button onClick={modal.onConfirm} style={{ ...S.btn, ...S.goldBtn, padding: '0.7rem 1.5rem', borderRadius: '8px', fontSize: '0.9rem' }}>Confirm</button>
-              )}
-              <button onClick={closeModal} style={{ ...S.btn, ...S.ghostBtn, padding: '0.7rem 1.5rem', borderRadius: '8px', fontSize: '0.9rem' }}>{modal.onConfirm ? 'Cancel' : 'OK'}</button>
-            </div>
-          </div>
-        </div>
-      );
+      // Modal rendering is handled by external Modal component
 
       const RulesModal = () => showRules && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
