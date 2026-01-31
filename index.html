@@ -142,14 +142,20 @@
       const gameRef = useRef(null);
       const modalShownRef = useRef(false);
       const intentionalExitRef = useRef(false);
+      const exitingRef = useRef(false); // Track if currently exiting
       
       // Full state reset function
       const fullReset = () => {
+        // Clear all timers
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
         if (roomChkRef.current) { clearInterval(roomChkRef.current); roomChkRef.current = null; }
         if (roomTimerRef.current) { clearInterval(roomTimerRef.current); roomTimerRef.current = null; }
+        
+        // Clear active game tracking
         setActiveGameId(null);
         localStorage.removeItem('cc_activegame');
+        
+        // Clear room/game state
         setRoomId(null);
         setRoomData(null);
         setGame(null);
@@ -157,16 +163,30 @@
         setPlayers([]);
         setMsgs([]);
         setMyVote(null);
-        setLoading(false);
         setRoomTimer(120);
+        
+        // Reset all refs EXCEPT intentionalExitRef and exitingRef
         lastRoundRef.current = 0;
         scoredRoundRef.current = 0;
         debatedRoundRef.current = 0;
         processingRef.current = false;
         roomClosedShownRef.current = false;
         modalShownRef.current = false;
-        intentionalExitRef.current = false;
+        
+        // Reset loading state - CRITICAL for re-entry
+        setLoading(false);
+        
+        // Close any open modals
+        setModal({ show: false, title: '', message: '', type: 'info', onConfirm: null });
+        
+        // Return to home view
         setView('home');
+        
+        // Reset exit flags AFTER a delay to ensure Firebase listeners have cleaned up
+        setTimeout(() => {
+          intentionalExitRef.current = false;
+          exitingRef.current = false;
+        }, 500);
       };
 
       useEffect(() => {
@@ -391,13 +411,20 @@
       };
 
       const payFee = async (addr) => {
-        if (!window.ethereum) return false;
+        if (!window.ethereum) {
+          showModal('🦊 MetaMask Required', 'Please install MetaMask to proceed.');
+          return false;
+        }
         setLoading(true);
         try {
           await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: addr, to: CONFIG.GENLAYER_CONTRACT, value: '0x0', data: '0x' }] });
           return true;
-        } catch { return false; }
-        finally { setLoading(false); }
+        } catch (e) {
+          console.log('Transaction cancelled or failed');
+          return false;
+        } finally {
+          setLoading(false);
+        }
       };
 
       const recordToGL = async () => {
@@ -406,16 +433,27 @@
       };
 
       const createRoom = async (theme) => {
-        if (!db || !player.name) { showModal('⚠️ Notice', 'Please enter your name first to begin your chronicle.'); return; }
-        if (loading) return;
+        // Validation
+        if (!db) { showModal('⚠️ Error', 'Database not connected. Please refresh the page.'); return; }
+        if (!player.name) { showModal('⚠️ Notice', 'Please enter your name first to begin your chronicle.'); return; }
+        if (loading) { console.log('Already loading, skip'); return; }
+        if (exitingRef.current) { console.log('Still exiting previous game, please wait'); return; }
         
+        // Get wallet address
         let addr = wallet;
-        if (!addr) { addr = await connectWallet(); if (!addr) return; }
+        if (!addr) { 
+          addr = await connectWallet(); 
+          if (!addr) return; 
+        }
         
-        // GenLayer transaction
+        // GenLayer transaction (burns GEN token)
         const paid = await payFee(addr);
-        if (!paid) return;
+        if (!paid) {
+          console.log('Payment not completed');
+          return;
+        }
         
+        // Create room in Firebase
         try {
           const now = Date.now();
           const rid = `room_${now}`;
@@ -427,27 +465,40 @@
             players: { [addr]: { id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false } }
           });
           
+          // Update local state
           setRoomId(rid);
           setActiveGameId(rid);
           localStorage.setItem('cc_activegame', rid);
           setView('room');
         } catch (e) {
           console.error('Create room failed:', e);
+          setLoading(false);
           showModal('⚠️ Error', 'Failed to create room. Please try again.');
         }
       };
 
       const joinRoom = async (rid) => {
-        if (!db || !player.name) { showModal('⚠️ Notice', 'Please enter your name first to join a chronicle.'); return; }
-        if (loading) return;
+        // Validation
+        if (!db) { showModal('⚠️ Error', 'Database not connected. Please refresh the page.'); return; }
+        if (!player.name) { showModal('⚠️ Notice', 'Please enter your name first to join a chronicle.'); return; }
+        if (loading) { console.log('Already loading, skip'); return; }
+        if (exitingRef.current) { console.log('Still exiting previous game, please wait'); return; }
         
+        // Get wallet address
         let addr = wallet;
-        if (!addr) { addr = await connectWallet(); if (!addr) return; }
+        if (!addr) { 
+          addr = await connectWallet(); 
+          if (!addr) return; 
+        }
         
-        // GenLayer transaction
+        // GenLayer transaction (burns GEN token)
         const paid = await payFee(addr);
-        if (!paid) return;
+        if (!paid) {
+          console.log('Payment not completed');
+          return;
+        }
         
+        // Join room in Firebase
         try {
           await db.ref(`rooms/${rid}/players/${addr}`).set({ id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false });
           setRoomId(rid);
@@ -456,6 +507,7 @@
           setView('room');
         } catch (e) {
           console.error('Join room failed:', e);
+          setLoading(false);
           showModal('⚠️ Error', 'Failed to join room. Please try again.');
         }
       };
@@ -657,14 +709,24 @@
 
       // Actually exit from game view
       const doExitGame = async () => {
+        // Close modal first
         closeModal();
         modalShownRef.current = false;
-        intentionalExitRef.current = true; // Mark as intentional exit to prevent listener conflict
-        // Case C: Game ended - close room
+        
+        // Mark as exiting and intentional exit BEFORE any async operations
+        exitingRef.current = true;
+        intentionalExitRef.current = true;
+        
+        // Case C: Game ended - close room in Firebase
         if (game?.phase === 'ended' && db && roomId) {
-          try { await db.ref(`rooms/${roomId}`).update({ status: 'closed' }); } catch {}
+          try { 
+            await db.ref(`rooms/${roomId}`).update({ status: 'closed' }); 
+          } catch (e) {
+            console.log('Failed to close room:', e);
+          }
         }
-        // Case B: Game still playing - room stays open for others, but player leaves
+        
+        // Reset all state and return to home
         fullReset();
       };
 
@@ -682,7 +744,11 @@
       const doReset = async () => {
         closeModal();
         modalShownRef.current = false;
-        intentionalExitRef.current = true; // Mark as intentional exit to prevent listener conflict
+        
+        // Mark as exiting and intentional exit BEFORE any async operations
+        exitingRef.current = true;
+        intentionalExitRef.current = true;
+        
         // Case A: Room not started (waiting) - close room immediately
         if (db && roomId && roomData?.status === 'waiting') {
           try { await db.ref(`rooms/${roomId}`).update({ status: 'closed' }); } catch {}
