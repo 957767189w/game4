@@ -141,6 +141,7 @@
       const roomClosedShownRef = useRef(false);
       const gameRef = useRef(null);
       const modalShownRef = useRef(false);
+      const intentionalExitRef = useRef(false);
       
       // Full state reset function
       const fullReset = () => {
@@ -164,6 +165,7 @@
         processingRef.current = false;
         roomClosedShownRef.current = false;
         modalShownRef.current = false;
+        intentionalExitRef.current = false;
         setView('home');
       };
 
@@ -244,7 +246,8 @@
             setRoomData(d);
             if (d.players) setPlayers(Object.values(d.players));
             // If room is closed/expired, check game state directly from Firebase
-            if ((d.status === 'closed' || d.status === 'expired') && !roomClosedShownRef.current) {
+            // Skip if this is an intentional exit (user clicked Leave)
+            if ((d.status === 'closed' || d.status === 'expired') && !roomClosedShownRef.current && !intentionalExitRef.current) {
               gRef.once('value').then(gs => {
                 const gd = gs.val();
                 if (!gd || gd.phase !== 'ended') {
@@ -413,20 +416,25 @@
         const paid = await payFee(addr);
         if (!paid) return;
         
-        const now = Date.now();
-        const rid = `room_${now}`;
-        await db.ref(`rooms/${rid}`).set({
-          theme,
-          host: addr,
-          status: 'waiting',
-          createdAt: now,
-          players: { [addr]: { id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false } }
-        });
-        
-        setRoomId(rid);
-        setActiveGameId(rid);
-        localStorage.setItem('cc_activegame', rid);
-        setView('room');
+        try {
+          const now = Date.now();
+          const rid = `room_${now}`;
+          await db.ref(`rooms/${rid}`).set({
+            theme,
+            host: addr,
+            status: 'waiting',
+            createdAt: now,
+            players: { [addr]: { id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false } }
+          });
+          
+          setRoomId(rid);
+          setActiveGameId(rid);
+          localStorage.setItem('cc_activegame', rid);
+          setView('room');
+        } catch (e) {
+          console.error('Create room failed:', e);
+          showModal('⚠️ Error', 'Failed to create room. Please try again.');
+        }
       };
 
       const joinRoom = async (rid) => {
@@ -440,11 +448,17 @@
         const paid = await payFee(addr);
         if (!paid) return;
         
-        await db.ref(`rooms/${rid}/players/${addr}`).set({ id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false });
-        setRoomId(rid);
-        setActiveGameId(rid);
-        localStorage.setItem('cc_activegame', rid);
-        setView('room');
+        try {
+          await db.ref(`rooms/${rid}/players/${addr}`).set({ id: addr, name: player.name, avatar: player.avatar, exp: player.exp, isAI: false });
+          setRoomId(rid);
+          setActiveGameId(rid);
+          localStorage.setItem('cc_activegame', rid);
+          setView('room');
+        } catch (e) {
+          console.error('Join room failed:', e);
+          showModal('⚠️ Error', 'Failed to join room. Please try again.');
+        }
+      };
       };
 
       const rejoinGame = async (gid) => {
@@ -646,6 +660,7 @@
       const doExitGame = async () => {
         closeModal();
         modalShownRef.current = false;
+        intentionalExitRef.current = true; // Mark as intentional exit to prevent listener conflict
         // Case C: Game ended - close room
         if (game?.phase === 'ended' && db && roomId) {
           try { await db.ref(`rooms/${roomId}`).update({ status: 'closed' }); } catch {}
@@ -668,6 +683,7 @@
       const doReset = async () => {
         closeModal();
         modalShownRef.current = false;
+        intentionalExitRef.current = true; // Mark as intentional exit to prevent listener conflict
         // Case A: Room not started (waiting) - close room immediately
         if (db && roomId && roomData?.status === 'waiting') {
           try { await db.ref(`rooms/${roomId}`).update({ status: 'closed' }); } catch {}
