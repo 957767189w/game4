@@ -459,7 +459,6 @@
           showModal('⚠️ Error', 'Failed to join room. Please try again.');
         }
       };
-      };
 
       const rejoinGame = async (gid) => {
         if (!db) return;
@@ -729,8 +728,9 @@
       );
 
       // HOME VIEW
-      if (view === 'home') return (
-        <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at top, rgba(30,25,15,0.3), ${C.bg})` }}>
+      if (view === 'home') {
+        return (
+          <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at top, rgba(30,25,15,0.3), ${C.bg})` }}>
           <Modal show={modal.show} title={modal.title} message={modal.message} type={modal.type} onClose={closeModal} onConfirm={modal.onConfirm} />
           <RulesModal />
           <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: `1px solid ${C.borderLight}`, background: 'rgba(5,5,7,0.8)' }}>
@@ -810,7 +810,8 @@
             )}
           </main>
         </div>
-      );
+        );
+      }
 
       // ROOM VIEW
       if (view === 'room') {
