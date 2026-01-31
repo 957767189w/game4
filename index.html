@@ -541,11 +541,18 @@
         debatedRoundRef.current = 0;
         processingRef.current = false;
         
+        // Read players directly from Firebase to ensure all are included
+        const roomSnap = await db.ref(`rooms/${roomId}/players`).once('value');
+        const allPlayers = roomSnap.val() ? Object.values(roomSnap.val()) : [];
+        
         await db.ref(`rooms/${roomId}`).update({ status: 'playing' });
         const theme = roomData?.theme || 'fantasy';
         const arc = THEMES[theme];
+        
+        // Initialize scores for ALL players from Firebase
         const scores = {};
-        players.forEach(p => { scores[p.id] = { influence: 0, debates: 0, wins: 0 }; });
+        allPlayers.forEach(p => { scores[p.id] = { influence: 0, debates: 0, wins: 0 }; });
+        
         await db.ref(`games/${roomId}`).set({ round: 1, phase: 'debate', path: [], scores, votes: {}, story: [{ text: arc.opening, type: 'opening', round: 0 }], timerEnd: Date.now() + CONFIG.DEBATE_DURATION * 1000, messages: {} });
         lastRoundRef.current = 1;
         addMsg('system', `📖 ${arc.name} begins! Round 1/${CONFIG.TOTAL_ROUNDS}`);
@@ -641,18 +648,38 @@
           addMsg('system', '🏆 Chronicle Complete!');
           await recordToGL();
           
-          const realCount = players.filter(p => !p.isAI).length;
-          const aiCount = players.filter(p => p.isAI).length;
+          // Read players directly from Firebase to ensure we have all players
+          const roomSnap = await db.ref(`rooms/${roomId}/players`).once('value');
+          const allPlayers = roomSnap.val() ? Object.values(roomSnap.val()) : [];
+          
+          const realCount = allPlayers.filter(p => !p.isAI).length;
+          const aiCount = allPlayers.filter(p => p.isAI).length;
+          
+          // Save EXP for ALL real players who have scores
           for (const [pid, sc] of Object.entries(newScores)) {
-            const p = players.find(x => x.id === pid);
+            const p = allPlayers.find(x => x.id === pid);
             if (p && !p.isAI) {
               const earnedExp = (sc.influence || 0) + (sc.debates || 0);
-              await db.ref(`userHistory/${pid}`).push().set({ id: Date.now(), timestamp: Date.now(), theme, path: newPath.join(''), ending: ending.slice(0, 100) + '...', datetime: new Date().toISOString(), realPlayers: realCount, aiPlayers: aiCount, earnedExp, roomId });
+              // Save to user history
+              await db.ref(`userHistory/${pid}`).push().set({ 
+                id: Date.now(), 
+                timestamp: Date.now(), 
+                theme, 
+                path: newPath.join(''), 
+                ending: ending.slice(0, 100) + '...', 
+                datetime: new Date().toISOString(), 
+                realPlayers: realCount, 
+                aiPlayers: aiCount, 
+                earnedExp, 
+                roomId 
+              });
+              // Save EXP to player profile (even if 0, to track participation)
               if (earnedExp > 0) {
                 await db.ref(`players/${pid}`).transaction(cur => {
                   if (!cur) return { name: p.name, avatar: p.avatar, exp: earnedExp };
                   return { ...cur, name: p.name, avatar: p.avatar, exp: (cur.exp || 0) + earnedExp };
                 });
+                console.log(`Saved ${earnedExp} EXP for player ${pid}`);
               }
             }
           }
