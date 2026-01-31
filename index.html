@@ -125,11 +125,13 @@
       const [input, setInput] = useState('');
       const [myVote, setMyVote] = useState(null);
       const [timer, setTimer] = useState(0);
+      const [roomTimer, setRoomTimer] = useState(120);
       const [lb, setLb] = useState([]);
       const [hist, setHist] = useState([]);
       const [loading, setLoading] = useState(false);
       const [modal, setModal] = useState({ show: false, title: '', message: '', type: 'info', onConfirm: null });
       const timerRef = useRef(null);
+      const roomTimerRef = useRef(null);
       const msgsEndRef = useRef(null);
       const roomChkRef = useRef(null);
       const lastRoundRef = useRef(0);
@@ -144,6 +146,7 @@
       const fullReset = () => {
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
         if (roomChkRef.current) { clearInterval(roomChkRef.current); roomChkRef.current = null; }
+        if (roomTimerRef.current) { clearInterval(roomTimerRef.current); roomTimerRef.current = null; }
         setActiveGameId(null);
         localStorage.removeItem('cc_activegame');
         setRoomId(null);
@@ -154,6 +157,7 @@
         setMsgs([]);
         setMyVote(null);
         setLoading(false);
+        setRoomTimer(120);
         lastRoundRef.current = 0;
         scoredRoundRef.current = 0;
         debatedRoundRef.current = 0;
@@ -288,6 +292,27 @@
         }, 5000);
         return () => { if (roomChkRef.current) clearInterval(roomChkRef.current); };
       }, [db, roomId, roomData, player.id]);
+
+      // Room countdown timer (2 minutes to start game)
+      useEffect(() => {
+        if (view !== 'room' || !roomData || roomData.status !== 'waiting') {
+          if (roomTimerRef.current) { clearInterval(roomTimerRef.current); roomTimerRef.current = null; }
+          return;
+        }
+        
+        if (roomTimerRef.current) clearInterval(roomTimerRef.current);
+        
+        // Initial calculation
+        const calcRemaining = () => Math.max(0, 120 - Math.floor((Date.now() - roomData.createdAt) / 1000));
+        setRoomTimer(calcRemaining());
+        
+        roomTimerRef.current = setInterval(() => {
+          const rem = calcRemaining();
+          setRoomTimer(rem);
+        }, 1000);
+        
+        return () => { if (roomTimerRef.current) { clearInterval(roomTimerRef.current); roomTimerRef.current = null; } };
+      }, [view, roomData]);
 
       useEffect(() => {
         // Single timer that runs throughout the game
@@ -774,6 +799,8 @@
       // ROOM VIEW
       if (view === 'room') {
         const age = roomData ? Math.floor((Date.now() - roomData.createdAt) / 1000) : 0;
+        const remainingMin = Math.floor(roomTimer / 60);
+        const remainingSec = roomTimer % 60;
         return (
           <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at center, rgba(30,25,15,0.2), ${C.bg})` }}>
             <Modal show={modal.show} title={modal.title} message={modal.message} type={modal.type} onClose={closeModal} onConfirm={modal.onConfirm} />
@@ -783,11 +810,15 @@
               <span style={{ color: C.textMuted }}>{player.avatar} {player.name}</span>
             </header>
             <div style={{ maxWidth: '600px', margin: '0 auto', padding: '2.5rem 2rem' }}>
-              <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                 <div style={{ fontSize: '5rem', marginBottom: '1rem' }} className="float-anim glow-icon">{themeData?.icon}</div>
                 <h2 style={{ ...S.title, color: C.gold, fontSize: '1.6rem', marginBottom: '0.4rem' }}>{themeData?.name}</h2>
-                <p style={{ color: C.textMuted, fontStyle: 'italic', marginBottom: '0.8rem' }}>{themeData?.tagline}</p>
-                <p style={{ color: C.goldMuted }}>Waiting {age}s</p>
+                <p style={{ color: C.textMuted, fontStyle: 'italic', marginBottom: '1rem' }}>{themeData?.tagline}</p>
+              </div>
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '1rem', background: roomTimer <= 30 ? `${C.error}15` : `${C.gold}10`, borderRadius: '10px', border: `1px solid ${roomTimer <= 30 ? C.error : C.gold}40` }}>
+                <p style={{ color: roomTimer <= 30 ? C.error : C.gold, fontWeight: 600, marginBottom: '0.3rem' }}>⏰ Please start the game within 2 minutes</p>
+                <p style={{ ...S.title, fontSize: '1.8rem', color: roomTimer <= 30 ? C.error : C.goldBright }}>{remainingMin}:{remainingSec.toString().padStart(2, '0')}</p>
+                <p style={{ color: C.textMuted, fontSize: '0.8rem', marginTop: '0.3rem' }}>Room will close when timer expires</p>
               </div>
               {age > 60 && <div style={{ textAlign: 'center', marginBottom: '1rem', padding: '0.7rem', background: `${C.gold}10`, borderRadius: '8px', border: `1px solid ${C.border}` }}><p style={{ color: C.goldMuted }}>⏳ AI joining soon...</p></div>}
               <h3 style={{ ...S.title, color: C.goldMuted, marginBottom: '1rem', fontSize: '0.85rem', textAlign: 'center', letterSpacing: '0.1em' }}>PLAYERS ({players.length}/{CONFIG.ROOM_SIZE.max})</h3>
